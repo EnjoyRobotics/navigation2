@@ -162,6 +162,10 @@ void SmacPlannerLattice::configure(
     costmap_ros->getUseRadius(),
     findCircumscribedCost(costmap_ros));
 
+  RCLCPP_WARN(_logger, "Footprint:");
+  for (auto p: costmap_ros->getRobotFootprint())
+      RCLCPP_WARN(_logger, "  - %f, %f", p.x, p.y);
+
   // Initialize A* template
   _a_star = std::make_unique<AStarAlgorithm<NodeLattice>>(_motion_model, _search_info);
   _a_star->initialize(
