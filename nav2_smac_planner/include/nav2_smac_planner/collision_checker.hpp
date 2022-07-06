@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License. Reserved.
 #include <vector>
+#include <string>
+#include <unordered_map>
 #include "nav2_costmap_2d/footprint_collision_checker.hpp"
 #include "nav2_smac_planner/constants.hpp"
 
@@ -29,6 +31,8 @@ class GridCollisionChecker
   : public nav2_costmap_2d::FootprintCollisionChecker<nav2_costmap_2d::Costmap2D *>
 {
 public:
+  std::unordered_map<std::string, float> log_data_;
+
   /**
    * @brief A constructor for nav2_smac_planner::GridCollisionChecker
    * for use when regular bin intervals are appropriate

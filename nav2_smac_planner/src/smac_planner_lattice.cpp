@@ -39,6 +39,7 @@ SmacPlannerLattice::SmacPlannerLattice()
 
 SmacPlannerLattice::~SmacPlannerLattice()
 {
+  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
   RCLCPP_INFO(
     _logger, "Destroying plugin %s of type SmacPlannerLattice",
     _name.c_str());
@@ -157,14 +158,16 @@ void SmacPlannerLattice::configure(
   // in valid configurations. This approximation helps to bound orientation error for all checks
   // in exchange for slight inaccuracies in the collision headings in terminal search states.
   _collision_checker = GridCollisionChecker(_costmap, 72u);
+  RCLCPP_ERROR(_logger, "costmap_ros->getUseRadius() = %i", costmap_ros->getUseRadius());
+  RCLCPP_ERROR(_logger, "findCircumscribedCost(costmap_ros) = %f", findCircumscribedCost(costmap_ros));
   _collision_checker.setFootprint(
     costmap_ros->getRobotFootprint(),
     costmap_ros->getUseRadius(),
     findCircumscribedCost(costmap_ros));
 
-  RCLCPP_WARN(_logger, "Footprint:");
+  RCLCPP_ERROR(_logger, "Footprint:");
   for (auto p: costmap_ros->getRobotFootprint())
-      RCLCPP_WARN(_logger, "  - %f, %f", p.x, p.y);
+      RCLCPP_ERROR(_logger, "  - %f, %f", p.x, p.y);
 
   // Initialize A* template
   _a_star = std::make_unique<AStarAlgorithm<NodeLattice>>(_motion_model, _search_info);
@@ -276,6 +279,11 @@ nav_msgs::msg::Path SmacPlannerLattice::createPlan(
   } catch (const std::runtime_error & e) {
     error = "invalid use: ";
     error += e.what();
+  }
+
+  RCLCPP_ERROR(_logger, "=========================================\n");
+  for (const auto& [key, value] : _collision_checker.log_data_) {
+    RCLCPP_ERROR(_logger, "  - %s = %f", key.c_str(), value);
   }
 
   if (!error.empty()) {

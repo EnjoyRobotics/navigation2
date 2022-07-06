@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License. Reserved.
 
+#include <string>
+#include <unordered_map>
 #include "nav2_smac_planner/collision_checker.hpp"
 
 namespace nav2_smac_planner
@@ -93,6 +95,13 @@ bool GridCollisionChecker::inCollision(
     return false;
   }
 
+  log_data_.clear();
+  log_data_["footprint_is_radius_"] = footprint_is_radius_;
+  log_data_["possible_inscribed_cost_"] = possible_inscribed_cost_;
+  log_data_["INSCRIBED"] = INSCRIBED;
+  log_data_["OCCUPIED"] = OCCUPIED;
+  log_data_["UNKNOWN"] = UNKNOWN;
+
   // Assumes setFootprint already set
   double wx, wy;
   costmap_->mapToWorld(static_cast<double>(x), static_cast<double>(y), wx, wy);
@@ -102,6 +111,7 @@ bool GridCollisionChecker::inCollision(
     // if the robot is even potentially in an inscribed collision
     footprint_cost_ = costmap_->getCost(
       static_cast<unsigned int>(x), static_cast<unsigned int>(y));
+    log_data_["footprint_cost_without_footprint"] = footprint_cost_;
 
     if (footprint_cost_ < possible_inscribed_cost_) {
       return false;
@@ -131,6 +141,7 @@ bool GridCollisionChecker::inCollision(
     }
 
     footprint_cost_ = footprintCost(current_footprint);
+    log_data_["footprint_cost_"] = footprint_cost_;
 
     if (footprint_cost_ == UNKNOWN && traverse_unknown) {
       return false;
@@ -157,6 +168,7 @@ bool GridCollisionChecker::inCollision(
   const bool & traverse_unknown)
 {
   footprint_cost_ = costmap_->getCost(i);
+
   if (footprint_cost_ == UNKNOWN && traverse_unknown) {
     return false;
   }
