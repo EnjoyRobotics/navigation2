@@ -101,7 +101,9 @@ NavigateToPoseNavigator::goalReceived(ActionT::Goal::ConstSharedPtr goal)
 }
 
 void
-NavigateToPoseNavigator::goalCompleted(typename ActionT::Result::SharedPtr /*result*/)
+NavigateToPoseNavigator::goalCompleted(
+  typename ActionT::Result::SharedPtr /*result*/,
+  const nav2_behavior_tree::BtStatus /*final_bt_status*/)
 {
 }
 
@@ -224,3 +226,8 @@ NavigateToPoseNavigator::onGoalPoseReceived(const geometry_msgs::msg::PoseStampe
 }
 
 }  // namespace nav2_bt_navigator
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(
+  nav2_bt_navigator::NavigateToPoseNavigator,
+  nav2_core::NavigatorBase)

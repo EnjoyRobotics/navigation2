@@ -29,7 +29,8 @@ namespace nav2_bt_navigator
 {
 
 BtNavigator::BtNavigator()
-: nav2_util::LifecycleNode("bt_navigator", "", false)
+: nav2_util::LifecycleNode("bt_navigator", "", false),
+  class_loader_("nav2_core", "nav2_core::NavigatorBase")
 {
   RCLCPP_INFO(get_logger(), "Creating");
 
@@ -99,29 +100,62 @@ BtNavigator::on_configure(const rclcpp_lifecycle::State & /*state*/)
   // Libraries to pull plugins (BT Nodes) from
   auto plugin_lib_names = get_parameter("plugin_lib_names").as_string_array();
 
-  pose_navigator_ = std::make_unique<nav2_bt_navigator::NavigateToPoseNavigator>();
-  poses_navigator_ = std::make_unique<nav2_bt_navigator::NavigateThroughPosesNavigator>();
-
-  nav2_bt_navigator::FeedbackUtils feedback_utils;
+  nav2_core::FeedbackUtils feedback_utils;
   feedback_utils.tf = tf_;
   feedback_utils.global_frame = global_frame_;
   feedback_utils.robot_frame = robot_frame_;
   feedback_utils.transform_tolerance = transform_tolerance_;
 
   // Odometry smoother object for getting current speed
-  odom_smoother_ = std::make_shared<nav2_util::OdomSmoother>(shared_from_this(), 0.3, odom_topic_);
+  auto node = shared_from_this();
+  odom_smoother_ = std::make_shared<nav2_util::OdomSmoother>(node, 0.3, odom_topic_);
 
-  if (!pose_navigator_->on_configure(
-      shared_from_this(), plugin_lib_names, feedback_utils, &plugin_muxer_, odom_smoother_))
-  {
-    return nav2_util::CallbackReturn::FAILURE;
+  // Navigator defaults
+  const std::vector<std::string> default_navigator_ids = {
+    "navigate_to_pose",
+    "navigate_through_poses"
+  };
+  const std::vector<std::string> default_navigator_types = {
+    "nav2_bt_navigator/NavigateToPoseNavigator",
+    "nav2_bt_navigator/NavigateThroughPosesNavigator"
+  };
+
+  std::vector<std::string> navigator_ids;
+  declare_parameter("navigators", default_navigator_ids);
+  get_parameter("navigators", navigator_ids);
+  if (navigator_ids == default_navigator_ids) {
+    for (size_t i = 0; i < default_navigator_ids.size(); ++i) {
+      declare_parameter(default_navigator_ids[i] + ".plugin", default_navigator_types[i]);
+    }
   }
 
-  if (!poses_navigator_->on_configure(
-      shared_from_this(), plugin_lib_names, feedback_utils, &plugin_muxer_, odom_smoother_))
-  {
-    return nav2_util::CallbackReturn::FAILURE;
+  // Load navigator plugins
+  for (size_t i = 0; i != navigator_ids.size(); i++) {
+    std::string navigator_type = nav2_util::get_plugin_type_param(node, navigator_ids[i]);
+    try {
+      RCLCPP_INFO(
+        get_logger(), "Creating navigator id %s of type %s",
+        navigator_ids[i].c_str(), navigator_type.c_str());
+      navigators_.push_back(class_loader_.createUniqueInstance(navigator_type));
+      if (!navigators_.back()->on_configure(
+          node, plugin_lib_names, feedback_utils,
+          &plugin_muxer_, odom_smoother_))
+      {
+        return nav2_util::CallbackReturn::FAILURE;
+      }
+    } catch (const pluginlib::PluginlibException & ex) {
+      RCLCPP_FATAL(
+        get_logger(), "Failed to create navigator id %s of type %s."
+        " Exception: %s", navigator_ids[i].c_str(), navigator_type.c_str(),
+        ex.what());
+      return nav2_util::CallbackReturn::FAILURE;
+    }
   }
+
+  get_navigator_srv_ = create_service<nav2_msgs::srv::GetString>(
+    std::string(get_name()) + "/get_current_navigator",
+    std::bind(&BtNavigator::get_navigator_callback, this,
+      std::placeholders::_1, std::placeholders::_2));
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -130,9 +164,10 @@ nav2_util::CallbackReturn
 BtNavigator::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Activating");
-
-  if (!poses_navigator_->on_activate() || !pose_navigator_->on_activate()) {
-    return nav2_util::CallbackReturn::FAILURE;
+  for (size_t i = 0; i != navigators_.size(); i++) {
+    if (!navigators_[i]->on_activate()) {
+      return nav2_util::CallbackReturn::FAILURE;
+    }
   }
 
   // create bond connection
@@ -145,9 +180,10 @@ nav2_util::CallbackReturn
 BtNavigator::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Deactivating");
-
-  if (!poses_navigator_->on_deactivate() || !pose_navigator_->on_deactivate()) {
-    return nav2_util::CallbackReturn::FAILURE;
+  for (size_t i = 0; i != navigators_.size(); i++) {
+    if (!navigators_[i]->on_deactivate()) {
+      return nav2_util::CallbackReturn::FAILURE;
+    }
   }
 
   // destroy bond connection
@@ -165,13 +201,13 @@ BtNavigator::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   tf_listener_.reset();
   tf_.reset();
 
-  if (!poses_navigator_->on_cleanup() || !pose_navigator_->on_cleanup()) {
-    return nav2_util::CallbackReturn::FAILURE;
+  for (size_t i = 0; i != navigators_.size(); i++) {
+    if (!navigators_[i]->on_cleanup()) {
+      return nav2_util::CallbackReturn::FAILURE;
+    }
   }
 
-  poses_navigator_.reset();
-  pose_navigator_.reset();
-
+  navigators_.clear();
   RCLCPP_INFO(get_logger(), "Completed Cleaning up");
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -181,6 +217,14 @@ BtNavigator::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Shutting down");
   return nav2_util::CallbackReturn::SUCCESS;
+}
+
+void
+BtNavigator::get_navigator_callback(const nav2_msgs::srv::GetString::Request::SharedPtr,
+  const nav2_msgs::srv::GetString::Response::SharedPtr res)
+{
+    res->data = plugin_muxer_.getCurrentNavigator();
+    res->success = true;
 }
 
 }  // namespace nav2_bt_navigator
