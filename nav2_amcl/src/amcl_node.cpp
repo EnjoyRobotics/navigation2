@@ -221,6 +221,10 @@ AmclNode::AmclNode()
   add_parameter(
     "map_topic", rclcpp::ParameterValue("map"),
     "Topic to subscribe to in order to receive the map to localize on");
+
+  add_parameter(
+    "first_map_only_", rclcpp::ParameterValue(false),
+    "Allows AMCL to accept maps more than once on the map_topic.");
 }
 
 AmclNode::~AmclNode()
