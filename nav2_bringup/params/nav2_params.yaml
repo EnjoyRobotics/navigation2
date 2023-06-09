@@ -111,6 +111,7 @@ bt_navigator:
       - compute_path_error_code
       - follow_path_error_code
 
+      - nav2_is_battery_charging_condition_bt_node
 
 bt_navigator_navigate_through_poses_rclcpp_node:
   ros__parameters:
