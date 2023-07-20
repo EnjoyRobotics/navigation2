@@ -117,7 +117,8 @@ public:
   {
     BT::PortsList basic = {
       BT::InputPort<std::string>("server_name", "Action server name"),
-      BT::InputPort<std::chrono::milliseconds>("server_timeout")
+      BT::InputPort<std::chrono::milliseconds>("server_timeout"),
+      BT::OutputPort<typename ActionT::Feedback::SharedPtr>("feedback"),
     };
     basic.insert(addition.begin(), addition.end());
 
@@ -368,6 +369,7 @@ protected:
   {
     goal_result_available_ = false;
     auto send_goal_options = typename rclcpp_action::Client<ActionT>::SendGoalOptions();
+
     send_goal_options.result_callback =
       [this](const typename rclcpp_action::ClientGoalHandle<ActionT>::WrappedResult & result) {
         if (future_goal_handle_) {
@@ -390,6 +392,7 @@ protected:
     send_goal_options.feedback_callback =
       [this](typename rclcpp_action::ClientGoalHandle<ActionT>::SharedPtr,
       const std::shared_ptr<const typename ActionT::Feedback> feedback) {
+        setOutput("feedback", feedback);
         feedback_ = feedback;
         emitWakeUpSignal();
       };
@@ -460,7 +463,7 @@ protected:
   typename rclcpp_action::ClientGoalHandle<ActionT>::WrappedResult result_;
 
   // To handle feedback from action server
-  std::shared_ptr<const typename ActionT::Feedback> feedback_;
+  std::shared_ptr<typename ActionT::Feedback> feedback_;
 
   // The node that will be used for any ROS operations
   rclcpp::Node::SharedPtr node_;
