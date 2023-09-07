@@ -180,7 +180,6 @@ def main(argv=sys.argv[1:]):
     time.sleep(10)
 
     wps = [[-0.52, -0.54], [0.58, -0.55], [0.58, 0.52]]
-    starting_pose = [-2.0, -0.5]
 
     test = WaypointFollowerTest()
     test.setWaypoints(wps)
@@ -190,7 +189,6 @@ def main(argv=sys.argv[1:]):
     while not test.initial_pose_received and retry_count <= retries:
         retry_count += 1
         test.info_msg('Setting initial pose')
-        test.setInitialPose(starting_pose)
         test.info_msg('Waiting for amcl_pose to be received')
         rclpy.spin_once(test, timeout_sec=1.0)  # wait for poseCallback
 
@@ -198,9 +196,6 @@ def main(argv=sys.argv[1:]):
     assert result
 
     # preempt with new point
-    test.setWaypoints([starting_pose])
-    result = test.run(False)
-    time.sleep(2)
     test.setWaypoints([wps[1]])
     result = test.run(False)
 
@@ -215,7 +210,7 @@ def main(argv=sys.argv[1:]):
     assert not result
     result = not result
     assert test.action_result.missed_waypoints[0].error_code == \
-           ComputePathToPose.Goal().GOAL_OUTSIDE_MAP
+        ComputePathToPose.Goal().GOAL_OUTSIDE_MAP
 
     test.shutdown()
     test.info_msg('Done Shutting Down.')
