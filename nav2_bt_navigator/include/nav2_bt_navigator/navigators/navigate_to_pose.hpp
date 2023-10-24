@@ -17,12 +17,10 @@
 
 #include <string>
 #include <vector>
-#include <tuple>
 #include <memory>
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "service_robot_msgs/msg/door.hpp"
 #include "nav2_core/behavior_tree_navigator.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "nav2_util/geometry_utils.hpp"
@@ -32,9 +30,6 @@
 
 namespace nav2_bt_navigator
 {
-
-using Door = service_robot_msgs::msg::Door;
-using Direction = uint16_t;
 
 /**
  * @class NavigateToPoseNavigator
@@ -131,7 +126,6 @@ protected:
 
   std::string goal_blackboard_id_;
   std::string path_blackboard_id_;
-  std::string doors_list_blackboard_id_;
 
   // Odometry smoother object
   std::shared_ptr<nav2_util::OdomSmoother> odom_smoother_;
@@ -140,8 +134,6 @@ protected:
   double avg_linear_vel_;
   // Robot's angular velocity (to calculate time remaining, if set)
   double avg_angular_vel_;
-  // Expected time to cross door, used to calculate remaining time
-  double time_to_cross_door_;
 };
 
 }  // namespace nav2_bt_navigator

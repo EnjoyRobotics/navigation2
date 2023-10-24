@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <vector>
-#include <tuple>
 #include <string>
 #include <memory>
 #include <limits>
@@ -43,18 +42,6 @@ NavigateToPoseNavigator::configure(
   }
 
   path_blackboard_id_ = node->get_parameter("path_blackboard_id").as_string();
-
-  if (!node->has_parameter("doors_list_blackboard_id")) {
-    node->declare_parameter("doors_list_blackboard_id", std::string("doors_list"));
-  }
-
-  doors_list_blackboard_id_ = node->get_parameter("doors_list_blackboard_id").as_string();
-
-  if (!node->has_parameter("time_to_cross_door")) {
-    node->declare_parameter("time_to_cross_door", 10.0);
-  }
-
-  time_to_cross_door_ = node->get_parameter("time_to_cross_door").as_double();
 
   if (!node->has_parameter("average_linear_speed")) {
     node->declare_parameter("average_linear_speed", 0.0);
@@ -218,23 +205,10 @@ NavigateToPoseNavigator::onLoop()
         rclcpp::Duration::from_seconds(distance_remaining / std::abs(current_linear_speed));
     }
 
-    // If doors_lists is set, add doors to time remaining
-    try {
-      auto doors_list = blackboard->get<std::vector<std::tuple<Door, Direction>>>(
-        "doors_list");
-      estimated_time_remaining = rclcpp::Duration::from_seconds(
-        estimated_time_remaining.seconds() +
-        doors_list.size() * time_to_cross_door_);
-    } catch (BT::RuntimeError &) {
-      RCLCPP_DEBUG(
-        logger_, "Doors list not found in blackboard. Doors will not be added to time remaining");
-    }
-
     feedback_msg->distance_remaining = distance_remaining;
     feedback_msg->estimated_time_remaining = estimated_time_remaining;
-  } catch (std::exception & e) {
-    RCLCPP_ERROR(
-      logger_, "Exception caught while calculating distance and time remaining: %s", e.what());
+  } catch (...) {
+    // Ignore
   }
 
   int recovery_count = 0;
