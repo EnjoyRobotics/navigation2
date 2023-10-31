@@ -303,13 +303,24 @@ void CollisionDetector::process()
   // Points array collected from different data sources in a robot base frame
   std::vector<Point> collision_points;
 
-  // Fill collision_points array from different data sources
-  for (std::shared_ptr<Source> source : sources_) {
-    source->getData(curr_time, collision_points);
-  }
-
   std::unique_ptr<nav2_msgs::msg::CollisionDetectorState> state_msg =
     std::make_unique<nav2_msgs::msg::CollisionDetectorState>();
+
+  // Fill collision_points array from different data sources
+  for (std::shared_ptr<Source> source : sources_) {
+    if (source->getEnabled()) {
+      if (!source->getData(curr_time, collision_points) &&
+        source->getSourceTimeout().seconds() != 0.0)
+      {
+        RCLCPP_WARN(
+          get_logger(),
+          "Invalid source %s detected."
+          " Either due to data not published yet, or to lack of new data received within the"
+          " sensor timeout, or if impossible to transform data to base frame",
+          source->getSourceName().c_str());
+      }
+    }
+  }
 
   for (std::shared_ptr<Polygon> polygon : polygons_) {
     state_msg->polygons.push_back(polygon->getName());

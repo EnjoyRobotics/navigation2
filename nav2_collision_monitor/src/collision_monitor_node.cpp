@@ -355,17 +355,26 @@ void CollisionMonitor::process(const Velocity & cmd_vel_in)
   // Points array collected from different data sources in a robot base frame
   std::vector<Point> collision_points;
 
-  // Fill collision_points array from different data sources
-  for (std::shared_ptr<Source> source : sources_) {
-    if (source->getEnabled()) {
-      source->getData(curr_time, collision_points);
-    }
-  }
-
   // By default - there is no action
   Action robot_action{DO_NOTHING, cmd_vel_in};
   // Polygon causing robot action (if any)
   std::shared_ptr<Polygon> action_polygon;
+
+  // Fill collision_points array from different data sources
+  for (std::shared_ptr<Source> source : sources_) {
+    if (source->getEnabled()) {
+      if (!source->getData(curr_time, collision_points) &&
+        source->getSourceTimeout().seconds() != 0.0)
+      {
+        action_polygon = nullptr;
+        robot_action.action_type = STOP;
+        robot_action.req_vel.x = 0.0;
+        robot_action.req_vel.y = 0.0;
+        robot_action.req_vel.tw = 0.0;
+        break;
+      }
+    }
+  }
 
   for (std::shared_ptr<Polygon> polygon : polygons_) {
     if (!polygon->getEnabled()) {
