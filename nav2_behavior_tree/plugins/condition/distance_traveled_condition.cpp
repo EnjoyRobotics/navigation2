@@ -32,6 +32,11 @@ DistanceTraveledCondition::DistanceTraveledCondition(
   transform_tolerance_(0.1),
   global_frame_("map"),
   robot_base_frame_("base_link")
+  initialized_(false)
+{
+}
+
+void DistanceTraveledCondition::initialize()
 {
   getInput("distance", distance_);
   getInput("global_frame", global_frame_);
@@ -43,6 +48,10 @@ DistanceTraveledCondition::DistanceTraveledCondition(
 
 BT::NodeStatus DistanceTraveledCondition::tick()
 {
+  if (!initialized_) {
+    initialize();
+  }
+
   if (status() == BT::NodeStatus::IDLE) {
     if (!nav2_util::getCurrentPose(
         start_pose_, *tf_, global_frame_, robot_base_frame_,

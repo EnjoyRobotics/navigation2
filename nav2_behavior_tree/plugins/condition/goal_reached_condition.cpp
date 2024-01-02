@@ -41,18 +41,6 @@ GoalReachedCondition::~GoalReachedCondition()
   cleanup();
 }
 
-BT::NodeStatus GoalReachedCondition::tick()
-{
-  if (!initialized_) {
-    initialize();
-  }
-
-  if (isGoalReached()) {
-    return BT::NodeStatus::SUCCESS;
-  }
-  return BT::NodeStatus::FAILURE;
-}
-
 void GoalReachedCondition::initialize()
 {
   node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
@@ -66,6 +54,18 @@ void GoalReachedCondition::initialize()
   node_->get_parameter("transform_tolerance", transform_tolerance_);
 
   initialized_ = true;
+}
+
+BT::NodeStatus GoalReachedCondition::tick()
+{
+  if (!initialized_) {
+    initialize();
+  }
+
+  if (isGoalReached()) {
+    return BT::NodeStatus::SUCCESS;
+  }
+  return BT::NodeStatus::FAILURE;
 }
 
 bool GoalReachedCondition::isGoalReached()
