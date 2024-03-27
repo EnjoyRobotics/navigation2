@@ -27,6 +27,9 @@
 #include "nav2_util/geometry_utils.hpp"
 #include "nav2_controller/controller_server.hpp"
 
+#define ANSI_RESET "\x1b[0m"
+#define ANSI_BOLD_BLUE  "\x1b[1m\x1b[34m"
+
 using namespace std::chrono_literals;
 using rcl_interfaces::msg::ParameterType;
 using std::placeholders::_1;
@@ -382,6 +385,11 @@ void ControllerServer::computeControl()
       throw nav2_core::ControllerException("Failed to find goal checker name: " + gc_name);
     }
 
+    RCLCPP_INFO(
+      get_logger(),
+      ANSI_BOLD_BLUE "Controller: %s, goal checker: %s" ANSI_RESET,
+      current_controller_.c_str(), current_goal_checker_.c_str());
+
     setPlannerPath(action_server_->get_current_goal()->path);
     progress_checker_->reset();
 
@@ -588,6 +596,11 @@ void ControllerServer::updateGlobalPath()
     auto goal = action_server_->accept_pending_goal();
     std::string current_controller;
     if (findControllerId(goal->controller_id, current_controller)) {
+      if (current_controller != current_controller_) {
+        RCLCPP_ERROR(
+          get_logger(), ANSI_BOLD_BLUE "Switching controller to %s." ANSI_RESET,
+          goal->controller_id.c_str());
+      }
       current_controller_ = current_controller;
     } else {
       RCLCPP_INFO(
