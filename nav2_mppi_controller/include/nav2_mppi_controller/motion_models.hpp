@@ -19,6 +19,12 @@
 
 #include "nav2_mppi_controller/models/control_sequence.hpp"
 #include "nav2_mppi_controller/models/state.hpp"
+#include "nav2_mppi_controller/models/constraints.hpp"
+
+// xtensor creates warnings that needs to be ignored as we are building with -Werror
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
 #include <xtensor/xmath.hpp>
 #include <xtensor/xmasked_view.hpp>
 #include <xtensor/xview.hpp>
@@ -47,21 +53,49 @@ public:
   virtual ~MotionModel() = default;
 
   /**
+    * @brief Configure motion model on bringup and load required parameters
+    * @param name Name of plugin
+    * @param param_handler Parameter handler object
+    */
+  void on_configure(
+    const std::string & name,
+    ParametersHandler * param_handler)
+  {
+    auto getParam = param_handler->getParamGetter(name);
+    getParam(accl_constraints_.ax_max, "ax_max", 2.0);
+    getParam(accl_constraints_.ax_min, "ax_min", -2.0);
+    getParam(model_dt_, "model_dt", 0.05);
+  }
+
+  /**
    * @brief With input velocities, find the vehicle's output velocities
    * @param state Contains control velocities to use to populate vehicle velocities
    */
   virtual void predict(models::State & state)
   {
-    using namespace xt::placeholders;  // NOLINT
-    xt::noalias(xt::view(state.vx, xt::all(), xt::range(1, _))) =
-      xt::view(state.cvx, xt::all(), xt::range(0, -1));
+    // Previously completed via tensor views, but found to be 10x slower
+    // using namespace xt::placeholders;  // NOLINT
+    // xt::noalias(xt::view(state.vx, xt::all(), xt::range(1, _))) =
+    //   xt::noalias(xt::view(state.cvx, xt::all(), xt::range(0, -1)));
+    // xt::noalias(xt::view(state.wz, xt::all(), xt::range(1, _))) =
+    //   xt::noalias(xt::view(state.cwz, xt::all(), xt::range(0, -1)));
+    // if (isHolonomic()) {
+    //   xt::noalias(xt::view(state.vy, xt::all(), xt::range(1, _))) =
+    //     xt::noalias(xt::view(state.cvy, xt::all(), xt::range(0, -1)));
+    // }
 
-    xt::noalias(xt::view(state.wz, xt::all(), xt::range(1, _))) =
-      xt::view(state.cwz, xt::all(), xt::range(0, -1));
-
-    if (isHolonomic()) {
-      xt::noalias(xt::view(state.vy, xt::all(), xt::range(1, _))) =
-        xt::view(state.cvy, xt::all(), xt::range(0, -1));
+    const bool is_holo = isHolonomic();
+    for (unsigned int i = 0; i != state.vx.shape(0); i++) {
+      for (unsigned int j = 1; j != state.vx.shape(1); j++) {
+        float max_feasible_vx = state.vx(i, j-1) + model_dt_*accl_constraints_.ax_max;
+        float min_feasible_vx = state.vx(i, j-1) + model_dt_*accl_constraints_.ax_min;
+        state.cvx(i, j - 1) = std::clamp(state.cvx(i, j - 1), min_feasible_vx, max_feasible_vx);
+        state.vx(i, j) = state.cvx(i, j - 1);
+        state.wz(i, j) = state.cwz(i, j - 1);
+        if (is_holo) {
+          state.vy(i, j) = state.cvy(i, j - 1);
+        }
+      }
     }
   }
 
@@ -76,6 +110,10 @@ public:
    * @param control_sequence Control sequence to apply constraints to
    */
   virtual void applyConstraints(models::ControlSequence & /*control_sequence*/) {}
+
+protected:
+  float model_dt_{0.0};
+  models::AccelConstraints accl_constraints_{0.0, 0.0};
 };
 
 /**
