@@ -72,13 +72,18 @@ void Optimizer::getParams()
   getParam(s.iteration_count, "iteration_count", 1);
   getParam(s.temperature, "temperature", 0.3f);
   getParam(s.gamma, "gamma", 0.015f);
-  getParam(s.base_constraints.vx_max, "vx_max", 0.5);
-  getParam(s.base_constraints.vx_min, "vx_min", -0.35);
-  getParam(s.base_constraints.vy, "vy_max", 0.5);
-  getParam(s.base_constraints.wz, "wz_max", 1.9);
-  getParam(s.sampling_std.vx, "vx_std", 0.2);
-  getParam(s.sampling_std.vy, "vy_std", 0.2);
-  getParam(s.sampling_std.wz, "wz_std", 0.4);
+  getParam(s.base_constraints.vx_max, "vx_max", 0.5f);
+  getParam(s.base_constraints.vx_min, "vx_min", -0.35f);
+  getParam(s.base_constraints.vy, "vy_max", 0.5f);
+  getParam(s.base_constraints.wz, "wz_max", 1.9f);
+  getParam(s.base_constraints.ax_max, "ax_max", 2.0);
+  getParam(s.base_constraints.ax_min, "ax_min", -2.0);
+  getParam(s.base_constraints.ay_max, "ay_max", 0.0);
+  getParam(s.base_constraints.ay_min, "ay_min", -0.0);
+  getParam(s.base_constraints.az, "az", 3.0);
+  getParam(s.sampling_std.vx, "vx_std", 0.2f);
+  getParam(s.sampling_std.vy, "vy_std", 0.2f);
+  getParam(s.sampling_std.wz, "wz_std", 0.4f);
   getParam(s.retry_attempt_limit, "retry_attempt_limit", 1);
 
   getParam(motion_model_name, "motion_model", std::string("DiffDrive"));
@@ -415,7 +420,7 @@ void Optimizer::setMotionModel(const std::string & model)
               "Model " + model + " is not valid! Valid options are DiffDrive, Omni, "
               "or Ackermann"));
   }
-  motion_model_->on_configure(name_, parameters_handler_);
+  motion_model_->initialize(settings_.constraints, settings_.model_dt);
 }
 
 void Optimizer::setSpeedLimit(double speed_limit, bool percentage)
