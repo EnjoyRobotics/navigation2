@@ -328,6 +328,27 @@ bool IntermediatePlannerServer::validatePath(
     return false;
   }
 
+  // Check if end pose is within costmap bounds
+  auto end_pose = path.poses.back().pose;
+  unsigned int mx, my;
+  if (!costmap_->worldToMap(end_pose.position.x, end_pose.position.y, mx, my)) {
+    RCLCPP_WARN(
+      get_logger(), "End pose is outside of the costmap. (%.2f, %.2f)",
+      end_pose.position.x, end_pose.position.y);
+    return false;
+  }
+
+  // Check if end pose is within tolerance
+  if (nav2_util::geometry_utils::euclidean_distance(end_pose.position, goal.pose.position) >
+    tolerance_)
+  {
+    RCLCPP_WARN(
+      get_logger(), "End pose is not within tolerance. (%.2f, %.2f) vs (%.2f, %.2f)",
+      end_pose.position.x, end_pose.position.y,
+      goal.pose.position.x, goal.pose.position.y);
+    return false;
+  }
+
   RCLCPP_DEBUG(
     get_logger(),
     "Found valid path of size %zu to (%.2f, %.2f)",
@@ -364,12 +385,9 @@ IntermediatePlannerServer::computePlan()
     std::string planner_id = goal->planner_id;
 
     // Check if received path is valid
-    if (!validatePath<ActionToPose>(geometry_msgs::msg::PoseStamped(), global_path, planner_id)) {
-      throw nav2_core::NoValidPathCouldBeFound("Received global path is invalid");
+    if (global_path.poses.empty()) {
+      throw nav2_core::NoValidPathCouldBeFound("Received global path is empty");
     }
-    RCLCPP_INFO(
-      get_logger(), "Received global path of size %zu in frame %s",
-      global_path.poses.size(), global_path.header.frame_id.c_str());
 
     if (global_path.header.frame_id.empty()) {
       RCLCPP_WARN(get_logger(), "Received global path frame_id is empty, using frame_id: map");
