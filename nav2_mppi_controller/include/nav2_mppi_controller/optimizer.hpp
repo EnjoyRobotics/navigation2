@@ -104,6 +104,15 @@ public:
    */
   xt::xtensor<float, 2> getOptimizedTrajectory();
 
+
+  /**
+   * @brief Get the critic costs for given trajectory
+   * @return Names and costs of the critics
+   */
+  xt::xtensor<float, 1> getOptimizationResults();
+
+  std::vector<std::string> getCriticNames() const;
+
   /**
    * @brief Set the maximum speed based on the speed limits callback
    * @param speed_limit Limit of the speed for use
