@@ -138,6 +138,7 @@ geometry_msgs::msg::TwistStamped MPPIController::computeVelocityCommands(
       cost_msg.data = critic_costs[i];
       critic_scores_->critic_scores.push_back(std::move(cost_msg));
     }
+    critic_scores_->header.stamp = clock_->now();
     critics_publisher_->publish(std::move(critic_scores_));
   }
 
