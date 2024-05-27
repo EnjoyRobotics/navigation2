@@ -619,7 +619,7 @@ IntermediatePlannerServer::computePlan()
       pose.header.stamp = get_clock()->now();
       geometry_msgs::msg::PoseStamped transformed_pose;
       try {
-        tf_->transform(pose, transformed_pose, costmap_ros_->getGlobalFrameID());
+        tf_->transform(pose, transformed_pose, global_path.header.frame_id);
       } catch (tf2::TransformException & ex) {
         throw nav2_core::PlannerTFError("Failed to transform local path to global frame");
       }
