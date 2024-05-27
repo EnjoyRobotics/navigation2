@@ -23,6 +23,7 @@
 #include "nav2_mppi_controller/tools/trajectory_visualizer.hpp"
 #include "nav2_mppi_controller/models/constraints.hpp"
 #include "nav2_mppi_controller/tools/utils.hpp"
+#include "nav2_mppi_controller/msg/critic_scores.hpp"
 
 #include "nav2_core/controller.hpp"
 #include "nav2_core/goal_checker.hpp"
@@ -121,10 +122,14 @@ protected:
   TrajectoryVisualizer trajectory_visualizer_;
 
   bool visualize_;
+  bool publish_critics_;
 
   double reset_period_;
   // Last time computeVelocityCommands was called
   rclcpp::Time last_time_called_;
+
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav2_mppi_controller::msg::CriticScores>>
+  critics_publisher_;
 };
 
 }  // namespace nav2_mppi_controller

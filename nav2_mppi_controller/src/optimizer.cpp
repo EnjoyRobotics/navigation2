@@ -159,6 +159,67 @@ void Optimizer::optimize()
   }
 }
 
+xt::xtensor<float, 1> Optimizer::getOptimizationResults()
+{
+  const xt::xtensor<float, 2> optimized_trajectory = getOptimizedTrajectory();
+  xt::xtensor<float, 1> costs = xt::zeros<float>({1});
+
+  /*auto size = optimized_trajectory.size();     // size = 6
+  auto dim = optimized_trajectory.dimension(); // dim = 2
+  auto shape = optimized_trajectory.shape();   // shape = {2, 3}
+
+  //log size, dim, and shape
+  RCLCPP_INFO(
+    logger_, "getOptimizedTrajectory() size: %ld, dim: %ld, shape: {%ld, %ld}",
+    size, dim, shape[0], shape[1]);*/
+
+  models::Trajectories dummy_trajectories;
+  /*size = dummy_trajectories.x.size();
+  dim = dummy_trajectories.x.dimension();
+  shape = dummy_trajectories.x.shape();
+  RCLCPP_INFO(
+    logger_, "[after creation] dummy_trajectories size: %ld, dim: %ld, shape: {%ld, %ld}",
+    size, dim, shape[0], shape[1]);*/
+
+  dummy_trajectories.reset(1, settings_.time_steps);
+  /*size = dummy_trajectories.x.size();
+  dim = dummy_trajectories.x.dimension();
+  shape = dummy_trajectories.x.shape();
+  RCLCPP_INFO(
+    logger_, "[after reset] dummy_trajectories size: %ld, dim: %ld, shape: {%ld, %ld}",
+    size, dim, shape[0], shape[1]);*/
+
+  dummy_trajectories.x += xt::view(optimized_trajectory, xt::all(), 0);
+  dummy_trajectories.y += xt::view(optimized_trajectory, xt::all(), 1);
+  dummy_trajectories.yaws += xt::view(optimized_trajectory, xt::all(), 2);
+
+  /*size = dummy_trajectories.x.size();
+  dim = dummy_trajectories.x.dimension();
+  shape = dummy_trajectories.x.shape();
+  RCLCPP_INFO(
+    logger_, "[after valuedump] dummy_trajectories size: %ld, dim: %ld, shape: {%ld, %ld}",
+    size, dim, shape[0], shape[1]);*/
+
+  CriticData dummy_data = {
+    state_, dummy_trajectories, path_, costs, settings_.model_dt,
+    false, critics_data_.goal_checker, critics_data_.motion_model, std::nullopt, std::nullopt};
+  // dummy_data.goal_checker = critics_data_.goal_checker;
+  // dummy_data.motion_model = critics_data_.motion_model;
+  dummy_data.furthest_reached_path_point.reset();
+  dummy_data.path_pts_valid.reset();
+
+  /*RCLCPP_INFO(
+    logger_, "dummy_data type: %s",
+    typeid(dummy_data).name());*/
+
+  return critic_manager_.evalTrajectory(dummy_data);
+}
+
+std::vector<std::string> Optimizer::getCriticNames() const
+{
+  return critic_manager_.getCriticNames();
+}
+
 bool Optimizer::fallback(bool fail)
 {
   static size_t counter = 0;

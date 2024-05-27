@@ -14,6 +14,7 @@ set(XTENSOR_USE_XSIMD 1)
 find_package(ament_cmake REQUIRED)
 find_package(xtensor REQUIRED)
 find_package(xsimd REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 include_directories(
   include
@@ -27,12 +28,14 @@ set(dependencies_pkgs
   geometry_msgs
   visualization_msgs
   nav_msgs
+  nav2_msgs
   nav2_core
   nav2_costmap_2d
   nav2_util
   tf2_geometry_msgs
   tf2_eigen
   tf2_ros
+  std_msgs
 )
 
 foreach(pkg IN LISTS dependencies_pkgs)
@@ -40,6 +43,11 @@ foreach(pkg IN LISTS dependencies_pkgs)
 endforeach()
 
 nav2_package()
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/CriticScores.msg"
+  DEPENDENCIES std_msgs
+)
 
 include(CheckCXXCompilerFlag)
 
@@ -119,8 +127,14 @@ if(BUILD_TESTING)
   # add_subdirectory(benchmark)
 endif()
 
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} rosidl_typesupport_cpp)
+
+target_link_libraries(mppi_controller "${cpp_typesupport_target}")
+
 ament_export_libraries(${libraries})
 ament_export_dependencies(${dependencies_pkgs})
+ament_export_dependencies(rosidl_default_runtime)
 ament_export_include_directories(include)
 pluginlib_export_plugin_description_file(nav2_core mppic.xml)
 pluginlib_export_plugin_description_file(nav2_mppi_controller critics.xml)
