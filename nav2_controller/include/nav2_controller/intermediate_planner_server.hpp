@@ -38,6 +38,7 @@
 #include "nav2_util/robot_utils.hpp"
 #include "nav2_util/simple_action_server.hpp"
 #include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/create_timer_ros.h"
@@ -258,6 +259,9 @@ protected:
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr
     intermediate_goal_publisher_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+    spiral_markers_pub_;
+  bool publish_spiral_markers_;
 
   // Tolerance parameters
   double tolerance_;

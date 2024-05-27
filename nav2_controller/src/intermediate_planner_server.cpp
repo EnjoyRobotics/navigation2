@@ -58,9 +58,11 @@ IntermediatePlannerServer::IntermediatePlannerServer(
   declare_parameter("n_points_near_goal", 5);
   declare_parameter("planner_plugins", default_ids_);
   declare_parameter("expected_planner_frequency", 1.0);
+  declare_parameter("publish_spiral_markers", false);
 
   get_parameter("tolerance", tolerance_);
   get_parameter("n_points_near_goal", n_points_near_goal_);
+  get_parameter("publish_spiral_markers", publish_spiral_markers_);
 
   get_parameter("planner_plugins", planner_ids_);
   if (planner_ids_ == default_ids_) {
@@ -142,6 +144,10 @@ IntermediatePlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*
   plan_publisher_ = create_publisher<nav_msgs::msg::Path>("intermediate_plan", 1);
   intermediate_goal_publisher_ = create_publisher<geometry_msgs::msg::PoseStamped>(
     "intermediate_goal", 1);
+  if (publish_spiral_markers_) {
+    spiral_markers_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
+      "spiral_markers", 1);
+  }
 
   // Create the action server for path planning to a pose
   action_server_pose_ = std::make_unique<ActionServerToPose>(
@@ -163,6 +169,9 @@ IntermediatePlannerServer::on_activate(const rclcpp_lifecycle::State & /*state*/
   plan_publisher_->on_activate();
   intermediate_goal_publisher_->on_activate();
   action_server_pose_->activate();
+  if (publish_spiral_markers_) {
+    spiral_markers_pub_->on_activate();
+  }
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -195,6 +204,9 @@ IntermediatePlannerServer::on_deactivate(const rclcpp_lifecycle::State & /*state
   action_server_pose_->deactivate();
   plan_publisher_->on_deactivate();
   intermediate_goal_publisher_->on_deactivate();
+  if (publish_spiral_markers_) {
+    spiral_markers_pub_->on_deactivate();
+  }
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -218,6 +230,7 @@ IntermediatePlannerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   plan_publisher_.reset();
   intermediate_goal_publisher_.reset();
   tf_.reset();
+  spiral_markers_pub_.reset();
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -491,6 +504,35 @@ IntermediatePlannerServer::computePlan()
       RCLCPP_INFO(
         get_logger(), "Failed to find path to exact goal. Searching for a point within tolerance...");
 
+      visualization_msgs::msg::MarkerArray spiral_markers;
+      visualization_msgs::msg::Marker spiral_marker;
+      visualization_msgs::msg::Marker point_marker;
+
+      if (publish_spiral_markers_) {
+        spiral_marker.header.frame_id = costmap_ros_->getGlobalFrameID();
+        spiral_marker.header.stamp = get_clock()->now();
+        spiral_marker.ns = "spiral";
+        spiral_marker.id = 0;
+        spiral_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+        spiral_marker.action = visualization_msgs::msg::Marker::ADD;
+        spiral_marker.scale.x = 0.05;
+        spiral_marker.color.g = 1.0;
+        spiral_marker.color.a = 1.0;
+        spiral_marker.points.reserve(n_points_near_goal_);
+
+        point_marker.header.frame_id = costmap_ros_->getGlobalFrameID();
+        point_marker.header.stamp = get_clock()->now();
+        point_marker.ns = "points";
+        point_marker.id = 0;
+        point_marker.type = visualization_msgs::msg::Marker::POINTS;
+        point_marker.action = visualization_msgs::msg::Marker::ADD;
+        point_marker.scale.x = 0.1;
+        point_marker.scale.y = 0.1;
+        point_marker.color.r = 1.0;
+        point_marker.color.a = 1.0;
+        point_marker.points.reserve(n_points_near_goal_);
+      }
+
       static const int POINTS_PER_ROTATION = 10;
       float n_rot = static_cast<float>(n_points_near_goal_) / POINTS_PER_ROTATION;
       float dt = 1. / n_points_near_goal_;
@@ -507,6 +549,14 @@ IntermediatePlannerServer::computePlan()
         geometry_msgs::msg::Point point;
         point.x = x;
         point.y = y;
+
+        if (publish_spiral_markers_) {
+          point_marker.points.push_back(point);
+          spiral_marker.points.push_back(point);
+          spiral_markers.markers.push_back(spiral_marker);
+          spiral_markers.markers.push_back(point_marker);
+          spiral_markers_pub_->publish(spiral_markers);
+        }
 
         unsigned int mx, my;
         if (costmap_->worldToMap(x, y, mx, my)) {
