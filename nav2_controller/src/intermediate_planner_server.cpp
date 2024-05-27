@@ -402,7 +402,7 @@ IntermediatePlannerServer::computePlan()
     transformed_path.poses.reserve(global_path.poses.size());
     for (auto & pose : global_path.poses) {
       pose.header.frame_id = global_path.header.frame_id;
-      pose.header.stamp = get_clock()->now();
+      pose.header.stamp = rclcpp::Time(0);
       geometry_msgs::msg::PoseStamped transformed_pose;
       if (!costmap_ros_->transformPoseToGlobalFrame(pose, transformed_pose)) {
         throw nav2_core::PlannerTFError("Failed to transform global path to costmap frame");
@@ -597,7 +597,7 @@ IntermediatePlannerServer::computePlan()
     path_out_global.poses.reserve(path_out_local.poses.size());
     for (auto & pose : path_out_local.poses) {
       pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-      pose.header.stamp = get_clock()->now();
+      pose.header.stamp = rclcpp::Time(0);
       geometry_msgs::msg::PoseStamped transformed_pose;
       try {
         tf_->transform(pose, transformed_pose, global_path.header.frame_id);
