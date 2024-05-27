@@ -101,20 +101,25 @@ IntermediatePlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*
 
   auto node = shared_from_this();
 
+  RCLCPP_INFO(get_logger(), "Creating global planners");
+
   for (size_t i = 0; i != planner_ids_.size(); i++) {
     try {
       planner_types_[i] = nav2_util::get_plugin_type_param(
         node, planner_ids_[i]);
+      RCLCPP_INFO(
+        get_logger(), "Found global planner plugin %s of type %s",
+        planner_ids_[i].c_str(), planner_types_[i].c_str());
       nav2_core::GlobalPlanner::Ptr planner =
         gp_loader_.createUniqueInstance(planner_types_[i]);
       RCLCPP_INFO(
-        get_logger(), "Created global planner plugin %s of type %s",
+        get_logger(), "Created intermediate planner plugin %s of type %s",
         planner_ids_[i].c_str(), planner_types_[i].c_str());
       planner->configure(node, planner_ids_[i], tf_, costmap_ros_);
       planners_.insert({planner_ids_[i], planner});
     } catch (const pluginlib::PluginlibException & ex) {
       RCLCPP_FATAL(
-        get_logger(), "Failed to create global planner. Exception: %s",
+        get_logger(), "Failed to create intermediate planner. Exception: %s",
         ex.what());
       return nav2_util::CallbackReturn::FAILURE;
     }
@@ -320,11 +325,9 @@ bool IntermediatePlannerServer::validatePath(
   const nav_msgs::msg::Path & path,
   const std::string & planner_id)
 {
+  (void)planner_id;
+
   if (path.poses.size() <= 1) {
-    RCLCPP_WARN(
-      get_logger(), "Planning algorithm %s failed to generate a valid"
-      " path to (%.2f, %.2f)", planner_id.c_str(),
-      goal.pose.position.x, goal.pose.position.y);
     return false;
   }
 
@@ -332,9 +335,6 @@ bool IntermediatePlannerServer::validatePath(
   auto end_pose = path.poses.back().pose;
   unsigned int mx, my;
   if (!costmap_->worldToMap(end_pose.position.x, end_pose.position.y, mx, my)) {
-    RCLCPP_WARN(
-      get_logger(), "End pose is outside of the costmap. (%.2f, %.2f)",
-      end_pose.position.x, end_pose.position.y);
     return false;
   }
 
@@ -342,18 +342,8 @@ bool IntermediatePlannerServer::validatePath(
   if (nav2_util::geometry_utils::euclidean_distance(end_pose.position, goal.pose.position) >
     tolerance_)
   {
-    RCLCPP_WARN(
-      get_logger(), "End pose is not within tolerance. (%.2f, %.2f) vs (%.2f, %.2f)",
-      end_pose.position.x, end_pose.position.y,
-      goal.pose.position.x, goal.pose.position.y);
     return false;
   }
-
-  RCLCPP_DEBUG(
-    get_logger(),
-    "Found valid path of size %zu to (%.2f, %.2f)",
-    path.poses.size(), goal.pose.position.x,
-    goal.pose.position.y);
 
   return true;
 }
@@ -399,13 +389,9 @@ IntermediatePlannerServer::computePlan()
       throw nav2_core::PlannerTFError("Failed to get robot pose");
     }
 
-    RCLCPP_INFO(
-      get_logger(), "Costmap global frame is %s", costmap_ros_->getGlobalFrameID().c_str());
-
     // Get start pose as robot pose
-    // tf2::doTransform(robot_pose, start, odom_inv_tf);
     start.header.frame_id = costmap_ros_->getGlobalFrameID();
-    RCLCPP_INFO(
+    RCLCPP_DEBUG(
       get_logger(), "Start pose is (%.2f, %.2f) in %s frame",
       start.pose.position.x, start.pose.position.y, start.header.frame_id.c_str());
 
@@ -484,7 +470,7 @@ IntermediatePlannerServer::computePlan()
     if (planner_id.empty()) {
       if (planner_ids_.size() > 0) {
         planner_id = planner_ids_[0];
-        RCLCPP_WARN(
+        RCLCPP_WARN_ONCE(
           get_logger(), "No planner specified in action call, will use %s",
           planner_id.c_str());
       } else {
@@ -500,12 +486,7 @@ IntermediatePlannerServer::computePlan()
     {
       bool found_path = false;
       try {
-        RCLCPP_INFO(
-          get_logger(), "Trying to find a path from (%.2f, %.2f) to (%.2f, %.2f) with %s",
-          start.pose.position.x, start.pose.position.y,
-          goal.pose.position.x, goal.pose.position.y, planner_id.c_str());
         path = getPlan(start, goal, planner_id);
-        RCLCPP_INFO(get_logger(), "Found path!");
         found_path = validatePath<ActionToPose>(goal, path, planner_id);
       } catch (...) {
         ex = std::current_exception();
@@ -559,7 +540,7 @@ IntermediatePlannerServer::computePlan()
         float x = goal_pose.pose.position.x + tolerance_ * t * std::cos(angle);
         float y = goal_pose.pose.position.y + tolerance_ * t * std::sin(angle);
 
-        RCLCPP_INFO(
+        RCLCPP_DEBUG(
           get_logger(),
           "Trying point (%.2f, %.2f) within tolerance... (t = %.2f)",
           x, y, t);
@@ -588,13 +569,13 @@ IntermediatePlannerServer::computePlan()
             if (getPlanNoThrow(new_goal, path_out_local)) {
               break;
             } else {
-              RCLCPP_INFO(get_logger(), "Failed to plan to point");
+              RCLCPP_DEBUG(get_logger(), "Failed to plan to point");
             }
           } else {
-            RCLCPP_INFO(get_logger(), "Point is in an obstacle");
+            RCLCPP_DEBUG(get_logger(), "Point is in an obstacle");
           }
         } else {
-          RCLCPP_INFO(get_logger(), "Point is outside the costmap");
+          RCLCPP_DEBUG(get_logger(), "Point is outside the costmap");
         }
       }
 
@@ -631,7 +612,7 @@ IntermediatePlannerServer::computePlan()
     publishPlan(result->local_path);
 
     auto cycle_duration = steady_clock_.now() - start_time;
-    RCLCPP_INFO(
+    RCLCPP_DEBUG(
       get_logger(), "Intermediate planner server cycle time: %.9f",
       cycle_duration.seconds());
 
