@@ -483,25 +483,27 @@ IntermediatePlannerServer::computePlan()
     std::exception_ptr ex;
     auto getPlanNoThrow = [this, &start, &planner_id, &ex](
       const geometry_msgs::msg::PoseStamped & goal, nav_msgs::msg::Path & path) -> bool
-    {
-      bool found_path = false;
-      try {
-        path = getPlan(start, goal, planner_id);
-        found_path = validatePath<ActionToPose>(goal, path, planner_id);
-      } catch (...) {
-        ex = std::current_exception();
-      }
-      return found_path;
-    };
+      {
+        bool found_path = false;
+        try {
+          path = getPlan(start, goal, planner_id);
+          found_path = validatePath<ActionToPose>(goal, path, planner_id);
+        } catch (...) {
+          ex = std::current_exception();
+        }
+        return found_path;
+      };
 
     nav_msgs::msg::Path path_out_local;
     if (!getPlanNoThrow(goal_pose, path_out_local)) {
       // If couldn't find a path to exact goal, try to find a point within tolerance
-      // Search in a parametric spiral of equation (tol * t * cos(t * n * 2pi), tol * t * sin(t * n * 2pi))
+      // Search in a parametric spiral of equation
+      // (tol * t * cos(t * n * 2pi), tol * t * sin(t * n * 2pi))
       // where n is the number of rotations the spiral makes.
       // It's calculated as n_points_near_goal / POINTS_PER_ROTATION.
       RCLCPP_INFO(
-        get_logger(), "Failed to find path to exact goal. Searching for a point within tolerance...");
+        get_logger(),
+        "Failed to find path to exact goal. Searching for a point within tolerance...");
 
       visualization_msgs::msg::MarkerArray spiral_markers;
       visualization_msgs::msg::Marker spiral_marker;
