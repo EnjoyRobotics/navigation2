@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <exception>
 
 #include "builtin_interfaces/msg/duration.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
@@ -53,8 +54,13 @@ IntermediatePlannerServer::IntermediatePlannerServer(
   RCLCPP_INFO(get_logger(), "Creating");
 
   // Declare this node's parameters
+  declare_parameter("tolerance", 0.25);
+  declare_parameter("n_points_near_goal", 5);
   declare_parameter("planner_plugins", default_ids_);
   declare_parameter("expected_planner_frequency", 1.0);
+
+  get_parameter("tolerance", tolerance_);
+  get_parameter("n_points_near_goal", n_points_near_goal_);
 
   get_parameter("planner_plugins", planner_ids_);
   if (planner_ids_ == default_ids_) {
@@ -413,25 +419,16 @@ IntermediatePlannerServer::computePlan()
           transformed_path.poses[curr_idx].pose.position.y, mx, my))
       {
         break;
-      } else {
-        // Check if pose is not lethal
-        unsigned int cost = costmap_->getCost(mx, my);
-        if (cost != nav2_costmap_2d::LETHAL_OBSTACLE &&
-          cost != nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE)
-        {
-          border_idx = curr_idx;
-        }
       }
+      border_idx = curr_idx;
     }
-    RCLCPP_DEBUG(
-      get_logger(), "Border pose (%.2f, %.2f) is at index %zu with distance %.2f",
-      transformed_path.poses[border_idx].pose.position.x,
-      transformed_path.poses[border_idx].pose.position.y,
-      border_idx, nav2_util::geometry_utils::euclidean_distance(
-        start.pose.position, transformed_path.poses[border_idx].pose.position));
 
     if (border_idx == closest_idx) {
-      border_idx = transformed_path.poses.size() - 1;
+      // This means we're at goal position, send path with only goal pose
+      result->local_path.poses = {global_path.poses.back()};
+      result->local_path.header.frame_id = global_path.header.frame_id;
+      result->local_path.header.stamp = get_clock()->now();
+      return;
     }
 
     // Create goal pose and set orientation
@@ -465,10 +462,80 @@ IntermediatePlannerServer::computePlan()
     }
 
     RCLCPP_DEBUG(get_logger(), "Getting plan...");
-    nav_msgs::msg::Path path_out_local = getPlan(start, goal_pose, planner_id);
-    RCLCPP_DEBUG(get_logger(), "Got plan of size %zu", path_out_local.poses.size());
-    if (!validatePath<ActionToPose>(goal_pose, path_out_local, planner_id)) {
-      throw nav2_core::NoValidPathCouldBeFound(planner_id + " generated invalid path");
+
+    std::exception_ptr ex;
+    auto getPlanNoThrow = [this, &start, &planner_id, &ex](
+      const geometry_msgs::msg::PoseStamped & goal, nav_msgs::msg::Path & path) -> bool
+    {
+      bool found_path = false;
+      try {
+        RCLCPP_INFO(
+          get_logger(), "Trying to find a path from (%.2f, %.2f) to (%.2f, %.2f) with %s",
+          start.pose.position.x, start.pose.position.y,
+          goal.pose.position.x, goal.pose.position.y, planner_id.c_str());
+        path = getPlan(start, goal, planner_id);
+        RCLCPP_INFO(get_logger(), "Found path!");
+        found_path = validatePath<ActionToPose>(goal, path, planner_id);
+      } catch (...) {
+        ex = std::current_exception();
+      }
+      return found_path;
+    };
+
+    nav_msgs::msg::Path path_out_local;
+    if (!getPlanNoThrow(goal_pose, path_out_local)) {
+      // If couldn't find a path to exact goal, try to find a point within tolerance
+      // Search in a parametric spiral of equation (tol * t * cos(t * n * 2pi), tol * t * sin(t * n * 2pi))
+      // where n is the number of rotations the spiral makes.
+      // It's calculated as n_points_near_goal / POINTS_PER_ROTATION.
+      RCLCPP_INFO(
+        get_logger(), "Failed to find path to exact goal. Searching for a point within tolerance...");
+
+      static const int POINTS_PER_ROTATION = 10;
+      float n_rot = static_cast<float>(n_points_near_goal_) / POINTS_PER_ROTATION;
+      float dt = 1. / n_points_near_goal_;
+      for (float t = dt; t < 1; t += dt) {
+        float angle = t * n_rot * 2 * M_PI;
+        float x = goal_pose.pose.position.x + tolerance_ * t * std::cos(angle);
+        float y = goal_pose.pose.position.y + tolerance_ * t * std::sin(angle);
+
+        RCLCPP_INFO(
+          get_logger(),
+          "Trying point (%.2f, %.2f) within tolerance... (t = %.2f)",
+          x, y, t);
+
+        geometry_msgs::msg::Point point;
+        point.x = x;
+        point.y = y;
+
+        unsigned int mx, my;
+        if (costmap_->worldToMap(x, y, mx, my)) {
+          auto cost = costmap_->getCost(mx, my);
+          if (cost != nav2_costmap_2d::LETHAL_OBSTACLE &&
+            cost != nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE)
+          {
+            geometry_msgs::msg::PoseStamped new_goal = goal_pose;
+            new_goal.pose.position.x = x;
+            new_goal.pose.position.y = y;
+            if (getPlanNoThrow(new_goal, path_out_local)) {
+              break;
+            } else {
+              RCLCPP_INFO(get_logger(), "Failed to plan to point");
+            }
+          } else {
+            RCLCPP_INFO(get_logger(), "Point is in an obstacle");
+          }
+        } else {
+          RCLCPP_INFO(get_logger(), "Point is outside the costmap");
+        }
+      }
+
+      if (!validatePath<ActionToPose>(goal_pose, path_out_local, planner_id)) {
+        if (ex) {
+          std::rethrow_exception(ex);
+        }
+        throw nav2_core::NoValidPathCouldBeFound("Failed to find path to point within tolerance");
+      }
     }
 
     // Transform path back to global frame
