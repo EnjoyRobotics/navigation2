@@ -487,7 +487,8 @@ IntermediatePlannerServer::computePlan()
     RCLCPP_DEBUG(get_logger(), "Getting plan...");
 
     std::exception_ptr ex;
-    auto getPlanNoThrow = [this, &start, &planner_id, &ex](
+    std::string ex_str;
+    auto getPlanNoThrow = [this, &start, &planner_id, &ex, &ex_str](
       const geometry_msgs::msg::PoseStamped & goal, nav_msgs::msg::Path & path) -> bool
       {
         bool found_path = false;
@@ -496,6 +497,7 @@ IntermediatePlannerServer::computePlan()
           found_path = validatePath<ActionToPose>(goal, path, planner_id);
         } catch (...) {
           ex = std::current_exception();
+          ex_str = ex ? ex.__cxa_exception_type()->name() : "unknown";
         }
         return found_path;
       };
@@ -509,7 +511,8 @@ IntermediatePlannerServer::computePlan()
       // It's calculated as n_points_near_goal / POINTS_PER_ROTATION.
       RCLCPP_INFO(
         get_logger(),
-        "Failed to find path to exact goal. Searching for a point within tolerance...");
+        "Failed to find path to exact goal (%s). Searching for a point within tolerance...",
+        ex ? ex_str.c_str() : "unknown");
 
       visualization_msgs::msg::MarkerArray spiral_markers;
       visualization_msgs::msg::Marker spiral_marker;
@@ -577,7 +580,9 @@ IntermediatePlannerServer::computePlan()
             if (getPlanNoThrow(new_goal, path_out_local)) {
               break;
             } else {
-              RCLCPP_DEBUG(get_logger(), "Failed to plan to point");
+              RCLCPP_DEBUG(
+                get_logger(), "Failed to plan to point (%s)",
+                ex ? ex_str.c_str() : "unknown");
             }
           } else {
             RCLCPP_DEBUG(get_logger(), "Point is in an obstacle");
