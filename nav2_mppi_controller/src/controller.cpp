@@ -124,7 +124,7 @@ geometry_msgs::msg::TwistStamped MPPIController::computeVelocityCommands(
 
     // log critic names and costs
     for (size_t i = 0; i < critic_names.size(); i++) {
-      RCLCPP_INFO(logger_, "Critic: %s, Cost: %f", critic_names[i].c_str(), critic_costs[i]);
+      RCLCPP_DEBUG(logger_, "Critic: %s, Cost: %f", critic_names[i].c_str(), critic_costs[i]);
     }
 
     // make msg
