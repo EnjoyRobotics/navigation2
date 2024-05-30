@@ -56,12 +56,14 @@ IntermediatePlannerServer::IntermediatePlannerServer(
   // Declare this node's parameters
   node_->declare_parameter("tolerance", 0.25);
   node_->declare_parameter("n_points_near_goal", 5);
+  node_->declare_parameter("points_per_rotation", 10);
   node_->declare_parameter("planner_plugins", default_ids_);
   node_->declare_parameter("expected_planner_frequency", 1.0);
   node_->declare_parameter("publish_spiral_markers", false);
 
   node_->get_parameter("tolerance", tolerance_);
   node_->get_parameter("n_points_near_goal", n_points_near_goal_);
+  node_->get_parameter("points_per_rotation", points_per_rotation_);
   node_->get_parameter("publish_spiral_markers", publish_spiral_markers_);
 
   node_->get_parameter("planner_plugins", planner_ids_);
@@ -481,7 +483,7 @@ IntermediatePlannerServer::computePlan()
       // Search in a parametric spiral of equation
       // (tol * t * cos(t * n * 2pi), tol * t * sin(t * n * 2pi))
       // where n is the number of rotations the spiral makes.
-      // It's calculated as n_points_near_goal / POINTS_PER_ROTATION.
+      // It's calculated as n_points_near_goal / points_per_rotation.
       RCLCPP_INFO(
         logger_,
         "Failed to find path to exact goal (%s). Searching for a point within tolerance...",
@@ -516,8 +518,7 @@ IntermediatePlannerServer::computePlan()
         point_marker.points.reserve(n_points_near_goal_);
       }
 
-      static const int POINTS_PER_ROTATION = 10;
-      float n_rot = static_cast<float>(n_points_near_goal_) / POINTS_PER_ROTATION;
+      float n_rot = static_cast<float>(n_points_near_goal_) / points_per_rotation_;
       float dt = 1. / n_points_near_goal_;
       for (float t = dt; t < 1; t += dt) {
         float angle = t * n_rot * 2 * M_PI;
