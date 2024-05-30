@@ -66,10 +66,6 @@ ControllerServer::ControllerServer(const rclcpp::NodeOptions & options)
   // The costmap node is used in the implementation of the controller
   costmap_ros_ = std::make_shared<nav2_costmap_2d::Costmap2DROS>(
     "local_costmap", std::string{get_namespace()}, "local_costmap");
-
-  // Setup intermediate planner
-  intermediate_planner_ = std::make_shared<IntermediatePlannerServer>(
-    costmap_ros_, options);
 }
 
 ControllerServer::~ControllerServer()
@@ -78,15 +74,18 @@ ControllerServer::~ControllerServer()
   goal_checkers_.clear();
   controllers_.clear();
   costmap_thread_.reset();
-  intermediate_planner_thread_.reset();
 }
 
 nav2_util::CallbackReturn
 ControllerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
+  RCLCPP_INFO(get_logger(), "Configuring controller interface");
+
   auto node = shared_from_this();
 
-  RCLCPP_INFO(get_logger(), "Configuring controller interface");
+  // Setup intermediate planner
+  intermediate_planner_ = std::make_shared<IntermediatePlannerServer>(
+    node, costmap_ros_);
 
   get_parameter("progress_checker_plugin", progress_checker_id_);
   if (progress_checker_id_ == default_progress_checker_id_) {
@@ -132,8 +131,6 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
   costmap_thread_ = std::make_unique<nav2_util::NodeThread>(costmap_ros_);
 
   intermediate_planner_->configure();
-  // Launch a thread to run the intermediate planner node
-  intermediate_planner_thread_ = std::make_unique<nav2_util::NodeThread>(intermediate_planner_);
 
   try {
     progress_checker_type_ = nav2_util::get_plugin_type_param(node, progress_checker_id_);
@@ -236,11 +233,7 @@ ControllerServer::on_activate(const rclcpp_lifecycle::State & /*state*/)
   vel_publisher_->on_activate();
   action_server_->activate();
 
-  if (intermediate_planner_->get_current_state().id() ==
-    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
-  {
-    intermediate_planner_->activate();
-  }
+  intermediate_planner_->activate();
 
   auto node = shared_from_this();
   // Add callback for dynamic parameters
@@ -315,7 +308,6 @@ ControllerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   action_server_.reset();
   odom_sub_.reset();
   costmap_thread_.reset();
-  intermediate_planner_thread_.reset();
   vel_publisher_.reset();
   speed_limit_sub_.reset();
 

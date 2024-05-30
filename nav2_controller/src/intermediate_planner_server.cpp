@@ -43,31 +43,31 @@ namespace nav2_controller
 {
 
 IntermediatePlannerServer::IntermediatePlannerServer(
-  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros,
-  const rclcpp::NodeOptions & options)
-: nav2_util::LifecycleNode("intermediate_planner_server", "", options),
+  nav2_util::LifecycleNode::SharedPtr parent,
+  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
+: node_(parent),
   gp_loader_("nav2_core", "nav2_core::GlobalPlanner"),
   default_ids_{"GridBased"},
   default_types_{"nav2_navfn_planner/NavfnPlanner"},
   costmap_(nullptr)
 {
-  RCLCPP_INFO(get_logger(), "Creating");
+  RCLCPP_INFO(logger_, "Creating");
 
   // Declare this node's parameters
-  declare_parameter("tolerance", 0.25);
-  declare_parameter("n_points_near_goal", 5);
-  declare_parameter("planner_plugins", default_ids_);
-  declare_parameter("expected_planner_frequency", 1.0);
-  declare_parameter("publish_spiral_markers", false);
+  node_->declare_parameter("tolerance", 0.25);
+  node_->declare_parameter("n_points_near_goal", 5);
+  node_->declare_parameter("planner_plugins", default_ids_);
+  node_->declare_parameter("expected_planner_frequency", 1.0);
+  node_->declare_parameter("publish_spiral_markers", false);
 
-  get_parameter("tolerance", tolerance_);
-  get_parameter("n_points_near_goal", n_points_near_goal_);
-  get_parameter("publish_spiral_markers", publish_spiral_markers_);
+  node_->get_parameter("tolerance", tolerance_);
+  node_->get_parameter("n_points_near_goal", n_points_near_goal_);
+  node_->get_parameter("publish_spiral_markers", publish_spiral_markers_);
 
-  get_parameter("planner_plugins", planner_ids_);
+  node_->get_parameter("planner_plugins", planner_ids_);
   if (planner_ids_ == default_ids_) {
     for (size_t i = 0; i < default_ids_.size(); ++i) {
-      declare_parameter(default_ids_[i] + ".plugin", default_types_[i]);
+      node_->declare_parameter(default_ids_[i] + ".plugin", default_types_[i]);
     }
   }
 
@@ -84,42 +84,40 @@ IntermediatePlannerServer::~IntermediatePlannerServer()
 }
 
 nav2_util::CallbackReturn
-IntermediatePlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
+IntermediatePlannerServer::configure()
 {
-  RCLCPP_INFO(get_logger(), "Configuring");
+  RCLCPP_INFO(logger_, "Configuring");
 
   costmap_ = costmap_ros_->getCostmap();
 
   RCLCPP_DEBUG(
-    get_logger(), "Costmap size: %d,%d",
+    logger_, "Costmap size: %d,%d",
     costmap_->getSizeInCellsX(), costmap_->getSizeInCellsY());
 
   tf_ = costmap_ros_->getTfBuffer();
-  tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(shared_from_this());
+  tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(node_);
 
   planner_types_.resize(planner_ids_.size());
 
-  auto node = shared_from_this();
-
-  RCLCPP_INFO(get_logger(), "Creating global planners");
+  RCLCPP_INFO(logger_, "Creating global planners");
 
   for (size_t i = 0; i != planner_ids_.size(); i++) {
     try {
       planner_types_[i] = nav2_util::get_plugin_type_param(
-        node, planner_ids_[i]);
+        node_, planner_ids_[i]);
       RCLCPP_INFO(
-        get_logger(), "Found global planner plugin %s of type %s",
+        logger_, "Found global planner plugin %s of type %s",
         planner_ids_[i].c_str(), planner_types_[i].c_str());
       nav2_core::GlobalPlanner::Ptr planner =
         gp_loader_.createUniqueInstance(planner_types_[i]);
       RCLCPP_INFO(
-        get_logger(), "Created intermediate planner plugin %s of type %s",
+        logger_, "Created intermediate planner plugin %s of type %s",
         planner_ids_[i].c_str(), planner_types_[i].c_str());
-      planner->configure(node, planner_ids_[i], tf_, costmap_ros_);
+      planner->configure(node_, planner_ids_[i], tf_, costmap_ros_);
       planners_.insert({planner_ids_[i], planner});
     } catch (const pluginlib::PluginlibException & ex) {
       RCLCPP_FATAL(
-        get_logger(), "Failed to create intermediate planner. Exception: %s",
+        logger_, "Failed to create intermediate planner. Exception: %s",
         ex.what());
       return nav2_util::CallbackReturn::FAILURE;
     }
@@ -130,33 +128,33 @@ IntermediatePlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*
   }
 
   RCLCPP_INFO(
-    get_logger(),
+    logger_,
     "Planner Server has %s planners available.", planner_ids_concat_.c_str());
 
   double expected_planner_frequency;
-  get_parameter("expected_planner_frequency", expected_planner_frequency);
+  node_->get_parameter("expected_planner_frequency", expected_planner_frequency);
   if (expected_planner_frequency > 0) {
     max_planner_duration_ = 1 / expected_planner_frequency;
   } else {
     RCLCPP_WARN(
-      get_logger(),
+      logger_,
       "The expected planner frequency parameter is %.4f Hz. The value should to be greater"
       " than 0.0 to turn on duration overrrun warning messages", expected_planner_frequency);
     max_planner_duration_ = 0.0;
   }
 
   // Initialize pubs & subs
-  plan_publisher_ = create_publisher<nav_msgs::msg::Path>("intermediate_plan", 1);
-  intermediate_goal_publisher_ = create_publisher<geometry_msgs::msg::PoseStamped>(
+  plan_publisher_ = node_->create_publisher<nav_msgs::msg::Path>("intermediate_plan", 1);
+  intermediate_goal_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
     "intermediate_goal", 1);
   if (publish_spiral_markers_) {
-    spiral_markers_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
+    spiral_markers_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
       "spiral_markers", 1);
   }
 
   // Create the action server for path planning to a pose
   action_server_pose_ = std::make_unique<ActionServerToPose>(
-    shared_from_this(),
+    node_,
     "compute_local_path",
     std::bind(&IntermediatePlannerServer::computePlan, this),
     nullptr,
@@ -167,9 +165,9 @@ IntermediatePlannerServer::on_configure(const rclcpp_lifecycle::State & /*state*
 }
 
 nav2_util::CallbackReturn
-IntermediatePlannerServer::on_activate(const rclcpp_lifecycle::State & /*state*/)
+IntermediatePlannerServer::activate()
 {
-  RCLCPP_INFO(get_logger(), "Activating");
+  RCLCPP_INFO(logger_, "Activating");
 
   plan_publisher_->on_activate();
   intermediate_goal_publisher_->on_activate();
@@ -183,28 +181,23 @@ IntermediatePlannerServer::on_activate(const rclcpp_lifecycle::State & /*state*/
     it->second->activate();
   }
 
-  auto node = shared_from_this();
-
-  is_path_valid_service_ = node->create_service<nav2_msgs::srv::IsPathValid>(
+  is_path_valid_service_ = node_->create_service<nav2_msgs::srv::IsPathValid>(
     "is_intermediate_path_valid",
     std::bind(
       &IntermediatePlannerServer::isPathValid, this,
       std::placeholders::_1, std::placeholders::_2));
 
   // Add callback for dynamic parameters
-  dyn_params_handler_ = node->add_on_set_parameters_callback(
+  dyn_params_handler_ = node_->add_on_set_parameters_callback(
     std::bind(&IntermediatePlannerServer::dynamicParametersCallback, this, _1));
-
-  // create bond connection
-  createBond();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
 nav2_util::CallbackReturn
-IntermediatePlannerServer::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
+IntermediatePlannerServer::deactivate()
 {
-  RCLCPP_INFO(get_logger(), "Deactivating");
+  RCLCPP_INFO(logger_, "Deactivating");
 
   action_server_pose_->deactivate();
   plan_publisher_->on_deactivate();
@@ -220,16 +213,13 @@ IntermediatePlannerServer::on_deactivate(const rclcpp_lifecycle::State & /*state
 
   dyn_params_handler_.reset();
 
-  // destroy bond connection
-  destroyBond();
-
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
 nav2_util::CallbackReturn
-IntermediatePlannerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
+IntermediatePlannerServer::cleanup()
 {
-  RCLCPP_INFO(get_logger(), "Cleaning up");
+  RCLCPP_INFO(logger_, "Cleaning up");
 
   action_server_pose_.reset();
   plan_publisher_.reset();
@@ -247,19 +237,12 @@ IntermediatePlannerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
-nav2_util::CallbackReturn
-IntermediatePlannerServer::on_shutdown(const rclcpp_lifecycle::State &)
-{
-  RCLCPP_INFO(get_logger(), "Shutting down");
-  return nav2_util::CallbackReturn::SUCCESS;
-}
-
 template<typename T>
 bool IntermediatePlannerServer::isServerInactive(
   std::unique_ptr<nav2_util::SimpleActionServer<T>> & action_server)
 {
   if (action_server == nullptr || !action_server->is_server_active()) {
-    RCLCPP_DEBUG(get_logger(), "Action server unavailable or inactive. Stopping.");
+    RCLCPP_DEBUG(logger_, "Action server unavailable or inactive. Stopping.");
     return true;
   }
 
@@ -280,7 +263,7 @@ bool IntermediatePlannerServer::isCancelRequested(
   std::unique_ptr<nav2_util::SimpleActionServer<T>> & action_server)
 {
   if (action_server->is_cancel_requested()) {
-    RCLCPP_INFO(get_logger(), "Goal was canceled. Canceling planning action.");
+    RCLCPP_INFO(logger_, "Goal was canceled. Canceling planning action.");
     action_server->terminate_all();
     return true;
   }
@@ -380,7 +363,7 @@ IntermediatePlannerServer::computePlan()
     }
 
     if (global_path.header.frame_id.empty()) {
-      RCLCPP_WARN(get_logger(), "Received global path frame_id is empty, using frame_id: map");
+      RCLCPP_WARN(logger_, "Received global path frame_id is empty, using frame_id: map");
       global_path.header.frame_id = "map";
     }
 
@@ -428,7 +411,7 @@ IntermediatePlannerServer::computePlan()
       }
     }
     RCLCPP_DEBUG(
-      get_logger(), "Closest pose to start is at index %zu with distance %.2f",
+      logger_, "Closest pose to start is at index %zu with distance %.2f",
       closest_idx, min_dist);
 
     // Find index (goal) where the path leaves the local path
@@ -447,9 +430,10 @@ IntermediatePlannerServer::computePlan()
     }
 
     if (border_idx == closest_idx) {
+      RCLCPP_INFO(logger_, "Robot is already at the goal");
       result->local_path.poses = global_path.poses;
       result->local_path.header.frame_id = global_path.header.frame_id;
-      result->local_path.header.stamp = get_clock()->now();
+      result->local_path.header.stamp = node_->get_clock()->now();
       action_server_pose_->succeeded_current(result);
       return;
     }
@@ -471,20 +455,20 @@ IntermediatePlannerServer::computePlan()
 
     float dx = goal_pose.pose.position.x - start.pose.position.x;
     float dy = goal_pose.pose.position.y - start.pose.position.y;
-    RCLCPP_DEBUG(get_logger(), "Goal dist from robot: %.2f, %.2f", dx, dy);
+    RCLCPP_DEBUG(logger_, "Goal dist from robot: %.2f, %.2f", dx, dy);
 
     if (planner_id.empty()) {
       if (planner_ids_.size() > 0) {
         planner_id = planner_ids_[0];
         RCLCPP_WARN_ONCE(
-          get_logger(), "No planner specified in action call, will use %s",
+          logger_, "No planner specified in action call, will use %s",
           planner_id.c_str());
       } else {
         throw nav2_core::InvalidPlanner("No planner specified in action call");
       }
     }
 
-    RCLCPP_DEBUG(get_logger(), "Getting plan...");
+    RCLCPP_DEBUG(logger_, "Getting plan...");
 
     std::exception_ptr ex;
     std::string ex_str;
@@ -510,7 +494,7 @@ IntermediatePlannerServer::computePlan()
       // where n is the number of rotations the spiral makes.
       // It's calculated as n_points_near_goal / POINTS_PER_ROTATION.
       RCLCPP_INFO(
-        get_logger(),
+        logger_,
         "Failed to find path to exact goal (%s). Searching for a point within tolerance...",
         ex ? ex_str.c_str() : "unknown");
 
@@ -520,7 +504,7 @@ IntermediatePlannerServer::computePlan()
 
       if (publish_spiral_markers_) {
         spiral_marker.header.frame_id = costmap_ros_->getGlobalFrameID();
-        spiral_marker.header.stamp = get_clock()->now();
+        spiral_marker.header.stamp = node_->get_clock()->now();
         spiral_marker.ns = "spiral";
         spiral_marker.id = 0;
         spiral_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
@@ -531,7 +515,7 @@ IntermediatePlannerServer::computePlan()
         spiral_marker.points.reserve(n_points_near_goal_);
 
         point_marker.header.frame_id = costmap_ros_->getGlobalFrameID();
-        point_marker.header.stamp = get_clock()->now();
+        point_marker.header.stamp = node_->get_clock()->now();
         point_marker.ns = "points";
         point_marker.id = 0;
         point_marker.type = visualization_msgs::msg::Marker::POINTS;
@@ -551,8 +535,8 @@ IntermediatePlannerServer::computePlan()
         float x = goal_pose.pose.position.x + tolerance_ * t * std::cos(angle);
         float y = goal_pose.pose.position.y + tolerance_ * t * std::sin(angle);
 
-        RCLCPP_DEBUG(
-          get_logger(),
+        RCLCPP_INFO(
+          logger_,
           "Trying point (%.2f, %.2f) within tolerance... (t = %.2f)",
           x, y, t);
 
@@ -580,15 +564,15 @@ IntermediatePlannerServer::computePlan()
             if (getPlanNoThrow(new_goal, path_out_local)) {
               break;
             } else {
-              RCLCPP_DEBUG(
-                get_logger(), "Failed to plan to point (%s)",
+              RCLCPP_INFO(
+                logger_, "Failed to plan to point (%s)",
                 ex ? ex_str.c_str() : "unknown");
             }
           } else {
-            RCLCPP_DEBUG(get_logger(), "Point is in an obstacle");
+            RCLCPP_INFO(logger_, "Point is in an obstacle");
           }
         } else {
-          RCLCPP_DEBUG(get_logger(), "Point is outside the costmap");
+          RCLCPP_INFO(logger_, "Point is outside the costmap");
         }
       }
 
@@ -602,11 +586,11 @@ IntermediatePlannerServer::computePlan()
 
     // Transform path back to global frame
     RCLCPP_DEBUG(
-      get_logger(), "Transforming path to global (%s) frame...",
+      logger_, "Transforming path to global (%s) frame...",
       costmap_ros_->getGlobalFrameID().c_str());
     nav_msgs::msg::Path path_out_global;
     path_out_global.header.frame_id = global_path.header.frame_id;
-    path_out_global.header.stamp = get_clock()->now();
+    path_out_global.header.stamp = node_->get_clock()->now();
     path_out_global.poses.reserve(path_out_local.poses.size());
     for (auto & pose : path_out_local.poses) {
       pose.header.frame_id = costmap_ros_->getGlobalFrameID();
@@ -626,67 +610,67 @@ IntermediatePlannerServer::computePlan()
 
     auto cycle_duration = steady_clock_.now() - start_time;
     RCLCPP_DEBUG(
-      get_logger(), "Intermediate planner server cycle time: %.9f",
+      logger_, "Intermediate planner server cycle time: %.9f",
       cycle_duration.seconds());
 
     if (max_planner_duration_ && cycle_duration.seconds() > max_planner_duration_) {
       RCLCPP_WARN(
-        get_logger(),
+        logger_,
         "Planner loop missed its desired rate of %.4f Hz. Current loop rate is %.4f Hz",
         1 / max_planner_duration_, 1 / cycle_duration.seconds());
     }
     action_server_pose_->succeeded_current(result);
   } catch (nav2_core::InvalidPlanner & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "InvalidPlanner exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "InvalidPlanner exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::INVALID_PLANNER;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::StartOccupied & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "StartOccupied exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "StartOccupied exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::START_OCCUPIED;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::GoalOccupied & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "GoalOccupied exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "GoalOccupied exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::GOAL_OCCUPIED;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::NoValidPathCouldBeFound & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "NoValidPathCouldBeFound exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "NoValidPathCouldBeFound exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::NO_VALID_PATH;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::PlannerTimedOut & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "PlannerTimedOut exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "PlannerTimedOut exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::TIMEOUT;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::StartOutsideMapBounds & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "StartOutsideMapBounds exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "StartOutsideMapBounds exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::START_OUTSIDE_MAP;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::GoalOutsideMapBounds & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "GoalOutsideMapBounds exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "GoalOutsideMapBounds exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::GOAL_OUTSIDE_MAP;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::PlannerTFError & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "PlannerTFError exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "PlannerTFError exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::TF_ERROR;
     action_server_pose_->terminate_current(result);
   } catch (std::exception & ex) {
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(get_logger(), "Exception: %s", ex.what());
+    RCLCPP_ERROR(logger_, "Exception: %s", ex.what());
     // exceptionWarning(start, goal->goal, goal->planner_id, ex);
     // result->error_code = ActionToPoseGoal::UNKNOWN;
     action_server_pose_->terminate_current(result);
@@ -700,7 +684,7 @@ IntermediatePlannerServer::getPlan(
   const std::string & planner_id)
 {
   RCLCPP_DEBUG(
-    get_logger(), "Attempting to a find path from (%.2f, %.2f) to "
+    logger_, "Attempting to a find path from (%.2f, %.2f) to "
     "(%.2f, %.2f).", start.pose.position.x, start.pose.position.y,
     goal.pose.position.x, goal.pose.position.y);
 
@@ -709,13 +693,13 @@ IntermediatePlannerServer::getPlan(
   } else {
     if (planners_.size() == 1 && planner_id.empty()) {
       RCLCPP_WARN_ONCE(
-        get_logger(), "No planners specified in action call. "
+        logger_, "No planners specified in action call. "
         "Server will use only plugin %s in server."
         " This warning will appear once.", planner_ids_concat_.c_str());
       return planners_[planners_.begin()->first]->createPlan(start, goal);
     } else {
       RCLCPP_ERROR(
-        get_logger(), "planner %s is not a valid planner. "
+        logger_, "planner %s is not a valid planner. "
         "Planner names are: %s", planner_id.c_str(),
         planner_ids_concat_.c_str());
       throw nav2_core::InvalidPlanner("Planner id " + planner_id + " is invalid");
@@ -801,7 +785,7 @@ IntermediatePlannerServer::dynamicParametersCallback(std::vector<rclcpp::Paramet
           max_planner_duration_ = 1 / parameter.as_double();
         } else {
           RCLCPP_WARN(
-            get_logger(),
+            logger_,
             "The expected planner frequency parameter is %.4f Hz. The value should to be greater"
             " than 0.0 to turn on duration overrrun warning messages", parameter.as_double());
           max_planner_duration_ = 0.0;
@@ -821,7 +805,7 @@ void IntermediatePlannerServer::exceptionWarning(
   const std::exception & ex)
 {
   RCLCPP_WARN(
-    get_logger(), "%s plugin failed to plan from (%.2f, %.2f) to (%0.2f, %.2f): \"%s\"",
+    logger_, "%s plugin failed to plan from (%.2f, %.2f) to (%0.2f, %.2f): \"%s\"",
     planner_id.c_str(),
     start.pose.position.x, start.pose.position.y,
     goal.pose.position.x, goal.pose.position.y,

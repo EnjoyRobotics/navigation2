@@ -217,7 +217,6 @@ protected:
 
   // Intermediate planner
   std::shared_ptr<nav2_controller::IntermediatePlannerServer> intermediate_planner_;
-  std::unique_ptr<nav2_util::NodeThread> intermediate_planner_thread_;
 
   // The controller needs a costmap node
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;

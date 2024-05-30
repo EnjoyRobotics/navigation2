@@ -58,7 +58,7 @@ namespace nav2_controller
  * @brief An action server implements the behavior tree's ComputeLocalPath
  * interface and hosts various plugins of different algorithms to compute plans.
  */
-class IntermediatePlannerServer : public nav2_util::LifecycleNode
+class IntermediatePlannerServer
 {
 public:
   /**
@@ -66,8 +66,8 @@ public:
    * @param options Additional options to control creation of the node.
    */
   explicit IntermediatePlannerServer(
-    std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros,
-    const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+    nav2_util::LifecycleNode::SharedPtr parent,
+    std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros);
 
   /**
    * @brief A destructor for nav2_planner::IntermediatePlannerServer
@@ -87,38 +87,32 @@ public:
     const geometry_msgs::msg::PoseStamped & goal,
     const std::string & planner_id);
 
-protected:
   /**
    * @brief Configure member variables and initializes planner
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  nav2_util::CallbackReturn configure();
   /**
    * @brief Activate member variables
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  nav2_util::CallbackReturn activate();
   /**
    * @brief Deactivate member variables
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  nav2_util::CallbackReturn deactivate();
   /**
    * @brief Reset member variables
    * @param state Reference to LifeCycle node state
    * @return SUCCESS or FAILURE
    */
-  nav2_util::CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
-  /**
-   * @brief Called when in shutdown state
-   * @param state Reference to LifeCycle node state
-   * @return SUCCESS or FAILURE
-   */
-  nav2_util::CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
+  nav2_util::CallbackReturn cleanup();
 
+protected:
   using ActionToPose = service_robot_msgs::action::ComputeLocalPath;
   using ActionToPoseGoal = ActionToPose::Goal;
   using ActionServerToPose = nav2_util::SimpleActionServer<ActionToPose>;
@@ -226,6 +220,13 @@ protected:
    */
   rcl_interfaces::msg::SetParametersResult
   dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters);
+
+  // Parent node (didn't make this its own node because otherwise
+  // it behaved differently composed vs standalone: if composed,
+  // it would be a part of the controller_server node, but if standalone,
+  // it would be its own node)
+  nav2_util::LifecycleNode::SharedPtr node_;
+  rclcpp::Logger logger_{rclcpp::get_logger("intermediate_planner_server")};
 
   // Our action server implements the ComputePathToPose action
   std::unique_ptr<ActionServerToPose> action_server_pose_;
