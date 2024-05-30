@@ -373,17 +373,6 @@ IntermediatePlannerServer::computePlan()
     }
     start.header.frame_id = costmap_ros_->getGlobalFrameID();
 
-    // If close to goal, just forward global plan
-    if (nav2_util::geometry_utils::euclidean_distance(
-      start.pose.position, global_path.poses.back().pose.position) < tolerance_)
-    {
-      result->local_path.poses = global_path.poses;
-      result->local_path.header.frame_id = global_path.header.frame_id;
-      result->local_path.header.stamp = get_clock()->now();
-      action_server_pose_->succeeded_current(result);
-      return;
-    }
-
     // Transform received path into costmap frame
     nav_msgs::msg::Path transformed_path;
     transformed_path.header.frame_id = costmap_ros_->getGlobalFrameID();
