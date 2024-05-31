@@ -421,12 +421,12 @@ IntermediatePlannerServer::computePlan()
     }
 
     if (border_idx == closest_idx) {
-      RCLCPP_INFO(logger_, "Robot is already at the goal");
-      result->local_path.poses = global_path.poses;
-      result->local_path.header.frame_id = global_path.header.frame_id;
-      result->local_path.header.stamp = node_->get_clock()->now();
-      action_server_pose_->succeeded_current(result);
-      return;
+      float goal_dist = nav2_util::geometry_utils::euclidean_distance(
+        start.pose.position, transformed_path.poses[border_idx].pose.position);
+      RCLCPP_DEBUG(
+        logger_,
+        "Failed to find a border pose, using end pose (dist from robot: %.2f)", goal_dist);
+      border_idx = transformed_path.poses.size() - 1;
     }
 
     // Create goal pose and set orientation
