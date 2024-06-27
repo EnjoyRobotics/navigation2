@@ -27,6 +27,8 @@
 #include "nav2_util/geometry_utils.hpp"
 #include "nav2_controller/controller_server.hpp"
 
+#include "nav2_controller/intermediate_planner_server.hpp"
+
 using namespace std::chrono_literals;
 using rcl_interfaces::msg::ParameterType;
 using std::placeholders::_1;
@@ -84,9 +86,13 @@ ControllerServer::~ControllerServer()
 nav2_util::CallbackReturn
 ControllerServer::on_configure(const rclcpp_lifecycle::State & state)
 {
+  RCLCPP_INFO(get_logger(), "Configuring controller interface");
+
   auto node = shared_from_this();
 
-  RCLCPP_INFO(get_logger(), "Configuring controller interface");
+  // Setup intermediate planner
+  intermediate_planner_ = std::make_shared<IntermediatePlannerServer>(
+    node, costmap_ros_);
 
   RCLCPP_INFO(get_logger(), "getting progress checker plugins..");
   get_parameter("progress_checker_plugins", progress_checker_ids_);
@@ -135,6 +141,8 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & state)
   costmap_ros_->configure();
   // Launch a thread to run the costmap node
   costmap_thread_ = std::make_unique<nav2_util::NodeThread>(costmap_ros_);
+
+  intermediate_planner_->configure();
 
   for (size_t i = 0; i != progress_checker_ids_.size(); i++) {
     try {
@@ -272,6 +280,8 @@ ControllerServer::on_activate(const rclcpp_lifecycle::State & /*state*/)
   vel_publisher_->on_activate();
   action_server_->activate();
 
+  intermediate_planner_->activate();
+
   auto node = shared_from_this();
   // Add callback for dynamic parameters
   dyn_params_handler_ = node->add_on_set_parameters_callback(
@@ -315,6 +325,8 @@ ControllerServer::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
   velocity.header.stamp = now();
   publishVelocity(velocity);
 
+  intermediate_planner_->deactivate();
+
   vel_publisher_->on_deactivate();
 
   remove_on_set_parameters_callback(dyn_params_handler_.get());
@@ -343,6 +355,8 @@ ControllerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 
   costmap_ros_->cleanup();
 
+
+  intermediate_planner_->cleanup();
 
   // Release any allocated resources
   action_server_.reset();
