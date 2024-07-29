@@ -258,6 +258,7 @@
 
     <Condition ID="IsPathValid">
       <input_port name="path"> Path to validate </input_port>
+      <input_port name="service_name">Name of the service to call, defaults to is_path_valid</input_port>
       <input_port name="server_timeout"> Server timeout </input_port>
     </Condition>
 
