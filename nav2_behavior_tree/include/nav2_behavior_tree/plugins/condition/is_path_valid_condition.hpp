@@ -58,12 +58,17 @@ public:
   {
     return {
       BT::InputPort<nav_msgs::msg::Path>("path", "Path to Check"),
+      BT::InputPort<std::string>(
+        "service_name",
+        "is_path_valid",
+        "Name of the service to call, defaults to is_path_valid"),
       BT::InputPort<std::chrono::milliseconds>("server_timeout")
     };
   }
 
 private:
   rclcpp::Node::SharedPtr node_;
+  std::string service_name_;
   rclcpp::Client<nav2_msgs::srv::IsPathValid>::SharedPtr client_;
   // The timeout value while waiting for a responce from the
   // is path valid service
