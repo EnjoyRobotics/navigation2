@@ -719,14 +719,31 @@ void IntermediatePlannerServer::isPathValid(
     return;
   }
 
+  nav_msgs::msg::Path transformed_path;
+  transformed_path.header.frame_id = costmap_ros_->getGlobalFrameID();
+  transformed_path.header.stamp = request->path.header.stamp;
+  transformed_path.poses.reserve(request->path.poses.size());
+
+  for (auto & pose : request->path.poses) {
+    pose.header.frame_id = request->path.header.frame_id;
+    pose.header.stamp = rclcpp::Time(0);
+    geometry_msgs::msg::PoseStamped transformed_pose;
+    if (!costmap_ros_->transformPoseToGlobalFrame(pose, transformed_pose)) {
+      RCLCPP_WARN(logger_, "Failed to transform path to costmap frame");
+      response->is_valid = false;
+      return;
+    }
+    transformed_path.poses.push_back(transformed_pose);
+  }
+
   geometry_msgs::msg::PoseStamped current_pose;
   unsigned int closest_point_index = 0;
   if (costmap_ros_->getRobotPose(current_pose)) {
     float current_distance = std::numeric_limits<float>::max();
     float closest_distance = current_distance;
     geometry_msgs::msg::Point current_point = current_pose.pose.position;
-    for (unsigned int i = 0; i < request->path.poses.size(); ++i) {
-      geometry_msgs::msg::Point path_point = request->path.poses[i].pose.position;
+    for (unsigned int i = 0; i < transformed_path.poses.size(); ++i) {
+      geometry_msgs::msg::Point path_point = transformed_path.poses[i].pose.position;
 
       current_distance = nav2_util::geometry_utils::euclidean_distance(
         current_point,
@@ -745,10 +762,10 @@ void IntermediatePlannerServer::isPathValid(
     std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(*(costmap_->getMutex()));
     unsigned int mx = 0;
     unsigned int my = 0;
-    for (unsigned int i = closest_point_index; i < request->path.poses.size(); ++i) {
+    for (unsigned int i = closest_point_index; i < transformed_path.poses.size(); ++i) {
       costmap_->worldToMap(
-        request->path.poses[i].pose.position.x,
-        request->path.poses[i].pose.position.y, mx, my);
+        transformed_path.poses[i].pose.position.x,
+        transformed_path.poses[i].pose.position.y, mx, my);
       unsigned int cost = costmap_->getCost(mx, my);
 
       if (cost == nav2_costmap_2d::LETHAL_OBSTACLE ||
