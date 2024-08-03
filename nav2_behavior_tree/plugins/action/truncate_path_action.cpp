@@ -44,7 +44,7 @@ inline BT::NodeStatus TruncatePath::tick()
 
   getInput("input_path", input_path);
 
-  if (input_path.poses.empty()) {
+  if (input_path.poses.empty() || distance_ <= 0.0) {
     setOutput("output_path", input_path);
     return BT::NodeStatus::SUCCESS;
   }
