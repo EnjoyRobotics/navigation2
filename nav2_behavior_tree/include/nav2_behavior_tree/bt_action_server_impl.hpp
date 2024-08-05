@@ -214,13 +214,9 @@ bool BtActionServer<ActionT>::loadBehaviorTree(const std::string & bt_xml_filena
     return false;
   }
 
-  auto xml_string = std::string(
-    std::istreambuf_iterator<char>(xml_file),
-    std::istreambuf_iterator<char>());
-
   // Create the Behavior Tree from the XML input
   try {
-    tree_ = bt_->createTreeFromText(xml_string, blackboard_);
+    tree_ = bt_->createTreeFromFile(filename, blackboard_);
     for (auto & blackboard : tree_.blackboard_stack) {
       blackboard->set<rclcpp::Node::SharedPtr>("node", client_node_);
       blackboard->set<std::chrono::milliseconds>("server_timeout", default_server_timeout_);
