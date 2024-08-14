@@ -31,10 +31,7 @@ GoalReachedCondition::GoalReachedCondition(
   initialized_(false),
   global_frame_("map"),
   robot_base_frame_("base_link")
-{
-  getInput("global_frame", global_frame_);
-  getInput("robot_base_frame", robot_base_frame_);
-}
+{}
 
 GoalReachedCondition::~GoalReachedCondition()
 {
@@ -46,6 +43,9 @@ BT::NodeStatus GoalReachedCondition::tick()
   if (!initialized_) {
     initialize();
   }
+
+  getInput("global_frame", global_frame_);
+  getInput("robot_base_frame", robot_base_frame_);
 
   if (isGoalReached()) {
     return BT::NodeStatus::SUCCESS;
