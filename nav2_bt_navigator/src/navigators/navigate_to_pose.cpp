@@ -266,6 +266,8 @@ NavigateToPoseNavigator::initializeGoalPose(ActionT::Goal::ConstSharedPtr goal)
 
   // Update the goal pose on the blackboard
   blackboard->set<geometry_msgs::msg::PoseStamped>(goal_blackboard_id_, goal->pose);
+  blackboard->set<std::string>("robot_base_frame", feedback_utils_.robot_frame);
+  blackboard->set<std::string>("global_frame", feedback_utils_.global_frame);
 }
 
 void
