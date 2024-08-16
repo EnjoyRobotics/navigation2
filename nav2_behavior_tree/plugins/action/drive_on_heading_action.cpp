@@ -43,20 +43,31 @@ DriveOnHeadingAction::DriveOnHeadingAction(
 
 BT::NodeStatus DriveOnHeadingAction::on_success()
 {
+  setOutput("distance_traveled", distance_traveled_);
   setOutput("error_code_id", ActionGoal::NONE);
   return BT::NodeStatus::SUCCESS;
 }
 
 BT::NodeStatus DriveOnHeadingAction::on_aborted()
 {
+  setOutput("distance_traveled", distance_traveled_);
   setOutput("error_code_id", result_.result->error_code);
   return BT::NodeStatus::FAILURE;
 }
 
 BT::NodeStatus DriveOnHeadingAction::on_cancelled()
 {
+  setOutput("distance_traveled", distance_traveled_);
   setOutput("error_code_id", ActionGoal::NONE);
   return BT::NodeStatus::SUCCESS;
+}
+
+void DriveOnHeadingAction::on_wait_for_result(std::shared_ptr<const typename Action::Feedback> feedback)
+{
+  if (!feedback) {
+    return;
+  }
+  distance_traveled_ = feedback->distance_traveled;
 }
 
 }  // namespace nav2_behavior_tree
