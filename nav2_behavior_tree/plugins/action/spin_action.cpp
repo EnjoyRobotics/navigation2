@@ -23,19 +23,21 @@ SpinAction::SpinAction(
   const std::string & xml_tag_name,
   const std::string & action_name,
   const BT::NodeConfiguration & conf)
-: BtActionNode<nav2_msgs::action::Spin>(xml_tag_name, action_name, conf)
-{
-  double dist;
-  getInput("spin_dist", dist);
-  double time_allowance;
-  getInput("time_allowance", time_allowance);
-  goal_.target_yaw = dist;
-  goal_.time_allowance = rclcpp::Duration::from_seconds(time_allowance);
-  getInput("is_recovery", is_recovery_);
-}
+: BtActionNode<nav2_msgs::action::Spin>(xml_tag_name, action_name, conf) {}
 
 void SpinAction::on_tick()
 {
+  if (status() == BT::NodeStatus::IDLE) {
+    double dist;
+    getInput("spin_dist", dist);
+    double time_allowance;
+    getInput("time_allowance", time_allowance);
+
+    goal_.target_yaw = dist;
+    goal_.time_allowance = rclcpp::Duration::from_seconds(time_allowance);
+  }
+
+  getInput("is_recovery", is_recovery_);
   if (is_recovery_) {
     increment_recovery_count();
   }
@@ -43,20 +45,31 @@ void SpinAction::on_tick()
 
 BT::NodeStatus SpinAction::on_success()
 {
+  setOutput("angular_distance_traveled", distance_traveled_);
   setOutput("error_code_id", ActionGoal::NONE);
   return BT::NodeStatus::SUCCESS;
 }
 
 BT::NodeStatus SpinAction::on_aborted()
 {
+  setOutput("angular_distance_traveled", distance_traveled_);
   setOutput("error_code_id", result_.result->error_code);
   return BT::NodeStatus::FAILURE;
 }
 
 BT::NodeStatus SpinAction::on_cancelled()
 {
+  setOutput("angular_distance_traveled", distance_traveled_);
   setOutput("error_code_id", ActionGoal::NONE);
   return BT::NodeStatus::SUCCESS;
+}
+
+void SpinAction::on_wait_for_result(std::shared_ptr<const typename Action::Feedback> feedback)
+{
+  if (!feedback) {
+    return;
+  }
+  distance_traveled_ = feedback->angular_distance_traveled;
 }
 
 }  // namespace nav2_behavior_tree

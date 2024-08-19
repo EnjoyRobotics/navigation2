@@ -60,6 +60,8 @@ public:
         BT::InputPort<double>("spin_dist", 1.57, "Spin distance"),
         BT::InputPort<double>("time_allowance", 10.0, "Allowed time for spinning"),
         BT::InputPort<bool>("is_recovery", true, "True if recovery"),
+        BT::OutputPort<double>(
+          "angular_distance_traveled", "Angular distance traveled (may be less than requested)"),
         BT::OutputPort<ActionResult::_error_code_type>(
           "error_code_id", "The spin behavior error code")
       });
@@ -79,6 +81,18 @@ public:
    * @brief Function to perform some user-defined operation upon cancellation of the action
    */
   BT::NodeStatus on_cancelled() override;
+
+  /**
+   * @brief Function to perform some user-defined operation after a timeout
+   * waiting for a result that hasn't been received yet. Also provides access to
+   * the latest feedback message from the action server. Feedback will be nullptr
+   * in subsequent calls to this function if no new feedback is received while waiting for a result.
+   * @param feedback shared_ptr to latest feedback message, nullptr if no new feedback was received
+   */
+  void on_wait_for_result(std::shared_ptr<const typename Action::Feedback> feedback) override;
+
+protected:
+  double distance_traveled_;
 
 private:
   bool is_recovery_;
