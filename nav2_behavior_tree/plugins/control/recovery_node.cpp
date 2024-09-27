@@ -25,7 +25,6 @@ RecoveryNode::RecoveryNode(
   current_child_idx_(0),
   number_of_retries_(1),
   retry_count_(0),
-  is_timeout_running_(false)
 {
   getInput("number_of_retries", number_of_retries_);
   getInput("timeout", timeout_);
@@ -40,9 +39,8 @@ BT::NodeStatus RecoveryNode::tick()
   }
 
   // initialize timout
-  if (timeout_ > 0 && is_timeout_running_ == false) {
+  if (timeout_ > 0 && status() == BT::NodeStatus::IDLE) {
     last_recovery_time_ = rclcpp::Clock().now();
-    is_timeout_running_ = true;
   }
 
   setStatus(BT::NodeStatus::RUNNING);
@@ -134,7 +132,6 @@ void RecoveryNode::halt()
   ControlNode::halt();
   retry_count_ = 0;
   current_child_idx_ = 0;
-  is_timeout_running_ = false;
 }
 
 }  // namespace nav2_behavior_tree

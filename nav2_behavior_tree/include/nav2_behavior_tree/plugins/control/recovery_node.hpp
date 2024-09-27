@@ -69,7 +69,6 @@ private:
   unsigned int number_of_retries_;
   unsigned int timeout_;
   unsigned int retry_count_;
-  bool is_timeout_running_;
   rclcpp::Time last_recovery_time_;
 
   /**
