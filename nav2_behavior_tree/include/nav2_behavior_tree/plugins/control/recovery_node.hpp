@@ -59,7 +59,7 @@ public:
     return {
       BT::InputPort<int>("number_of_retries", 1, "Number of retries"),
       BT::InputPort<int>(
-        "timeout", 0.0,
+        "timeout", 0,
         "Timeout in (uint) seconds for resetting retry count (0 - disbale)")
     };
   }
