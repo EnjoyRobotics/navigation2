@@ -24,7 +24,7 @@ RecoveryNode::RecoveryNode(
 : BT::ControlNode::ControlNode(name, conf),
   current_child_idx_(0),
   number_of_retries_(1),
-  retry_count_(0),
+  retry_count_(0)
 {
   getInput("number_of_retries", number_of_retries_);
   getInput("timeout", timeout_);
