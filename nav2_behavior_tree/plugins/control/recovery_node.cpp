@@ -38,7 +38,7 @@ BT::NodeStatus RecoveryNode::tick()
     throw BT::BehaviorTreeException("Recovery Node '" + name() + "' must only have 2 children.");
   }
 
-  // initialize timout
+  // initialize timeout
   if (timeout_ > 0 && status() == BT::NodeStatus::IDLE) {
     last_recovery_time_ = rclcpp::Clock().now();
   }
