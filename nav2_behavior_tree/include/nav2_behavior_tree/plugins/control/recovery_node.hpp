@@ -65,6 +65,7 @@ public:
   }
 
 private:
+  rclcpp::Node::SharedPtr node_;
   unsigned int current_child_idx_;
   unsigned int number_of_retries_;
   unsigned int timeout_;

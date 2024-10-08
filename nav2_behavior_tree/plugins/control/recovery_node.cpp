@@ -28,6 +28,7 @@ RecoveryNode::RecoveryNode(
 {
   getInput("number_of_retries", number_of_retries_);
   getInput("timeout", timeout_);
+  node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
 }
 
 BT::NodeStatus RecoveryNode::tick()
@@ -40,14 +41,14 @@ BT::NodeStatus RecoveryNode::tick()
 
   // initialize timeout
   if (timeout_ > 0 && status() == BT::NodeStatus::IDLE) {
-    last_recovery_time_ = rclcpp::Clock().now();
+    last_recovery_time_ = rclcpp::Time(0);
   }
 
   setStatus(BT::NodeStatus::RUNNING);
 
   // if reached timeout reset retry_count_
   if (timeout_ > 0 &&
-    rclcpp::Clock().now() > last_recovery_time_ + std::chrono::seconds(timeout_))
+    node_->now() > last_recovery_time_ + std::chrono::seconds(timeout_))
   {
     retry_count_ = 0;
   }
@@ -96,7 +97,7 @@ BT::NodeStatus RecoveryNode::tick()
           {
             // halt second child, increment recovery count, and tick first child in next iteration
             ControlNode::haltChild(1);
-            last_recovery_time_ = rclcpp::Clock().now();
+            last_recovery_time_ = rclcpp::Time(0);
             retry_count_++;
             current_child_idx_--;
           }
