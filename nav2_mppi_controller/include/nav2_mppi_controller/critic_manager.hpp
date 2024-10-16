@@ -46,12 +46,12 @@ public:
     * @brief Constructor for mppi::CriticManager
     */
   CriticManager() = default;
-  
+
   /**
     * @brief Virtual Destructor for mppi::CriticManager
     */
   virtual ~CriticManager() = default;
-  
+
   /**
     * @brief Configure critic manager on bringup and load plugins
     * @param parent WeakPtr to node
@@ -68,6 +68,10 @@ public:
     * @param CriticData Struct of necessary information to pass to the critic functions
     */
   void evalTrajectoriesScores(CriticData & data) const;
+
+  xt::xtensor<float, 1> evalTrajectory(CriticData & data) const;
+
+  std::vector<std::string> getCriticNames() const;
 
 protected:
   /**
