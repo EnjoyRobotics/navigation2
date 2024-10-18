@@ -50,10 +50,11 @@ void Spin::onConfigure()
     throw std::runtime_error{"Failed to lock node"};
   }
 
+  std::string sim_ahead_time = this->behavior_name_ + ".simulate_ahead_time";
   nav2_util::declare_parameter_if_not_declared(
     node,
-    "simulate_ahead_time", rclcpp::ParameterValue(2.0));
-  node->get_parameter("simulate_ahead_time", simulate_ahead_time_);
+    sim_ahead_time, rclcpp::ParameterValue(2.0));
+  node->get_parameter(sim_ahead_time, simulate_ahead_time_);
 
   nav2_util::declare_parameter_if_not_declared(
     node,
