@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <xtensor/xtensor.hpp>
+
 #include "nav2_mppi_controller/critic_manager.hpp"
 
 namespace mppi
@@ -64,6 +66,11 @@ std::string CriticManager::getFullName(const std::string & name)
   return "mppi::critics::" + name;
 }
 
+std::vector<std::string> CriticManager::getCriticNames() const
+{
+  return critic_names_;
+}
+
 void CriticManager::evalTrajectoriesScores(
   CriticData & data) const
 {
@@ -73,6 +80,24 @@ void CriticManager::evalTrajectoriesScores(
     }
     critics_[q]->score(data);
   }
+}
+
+xt::xtensor<float, 1> CriticManager::evalTrajectory(
+  CriticData & data) const
+{
+  xt::xtensor<float, 1> critic_scores = xt::zeros<float>({critics_.size()});
+
+  for (size_t q = 0; q < critics_.size(); q++) {
+    if (data.fail_flag) {
+      break;
+    }
+    data.costs = xt::zeros<float>({1});
+    // log costs values
+    critics_[q]->score(data);
+    critic_scores(q) = data.costs[0];
+  }
+
+  return critic_scores;
 }
 
 }  // namespace mppi

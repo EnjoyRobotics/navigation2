@@ -39,6 +39,7 @@ void MPPIController::configure(
   // Get high-level controller parameters
   auto getParam = parameters_handler_->getParamGetter(name_);
   getParam(visualize_, "visualize", false);
+  getParam(publish_critics_, "publish_critics", false);
   getParam(reset_period_, "reset_period", 1.0);
 
   // Configure composed objects
@@ -47,6 +48,11 @@ void MPPIController::configure(
   trajectory_visualizer_.on_configure(
     parent_, name_,
     costmap_ros_->getGlobalFrameID(), parameters_handler_.get());
+
+  if (publish_critics_) {
+    critics_publisher_ = node->create_publisher<nav2_mppi_controller::msg::CriticScores>(
+      "/mppi_critic_scores", 1);
+  }
 
   RCLCPP_INFO(logger_, "Configured MPPI Controller: %s", name_.c_str());
 }
@@ -61,6 +67,7 @@ void MPPIController::cleanup()
 
 void MPPIController::activate()
 {
+  critics_publisher_->on_activate();
   trajectory_visualizer_.on_activate();
   parameters_handler_->start();
   RCLCPP_INFO(logger_, "Activated MPPI Controller: %s", name_.c_str());
@@ -68,6 +75,7 @@ void MPPIController::activate()
 
 void MPPIController::deactivate()
 {
+  critics_publisher_->on_deactivate();
   trajectory_visualizer_.on_deactivate();
   RCLCPP_INFO(logger_, "Deactivated MPPI Controller: %s", name_.c_str());
 }
@@ -108,6 +116,30 @@ geometry_msgs::msg::TwistStamped MPPIController::computeVelocityCommands(
 
   if (visualize_) {
     visualize(std::move(transformed_plan));
+  }
+
+  if (publish_critics_) {
+    std::vector<std::string> critic_names = optimizer_.getCriticNames();
+    xt::xtensor<float, 1> critic_costs = optimizer_.getOptimizationResults();
+
+    // log critic names and costs
+    for (size_t i = 0; i < critic_names.size(); i++) {
+      RCLCPP_DEBUG(logger_, "Critic: %s, Cost: %f", critic_names[i].c_str(), critic_costs[i]);
+    }
+
+    // make msg
+    auto critic_scores_ = std::make_unique<nav2_mppi_controller::msg::CriticScores>();
+    for (size_t i = 0; i < critic_names.size(); i++) {
+      std_msgs::msg::String name_msg;
+      name_msg.data = critic_names[i];
+      critic_scores_->critic_names.push_back(std::move(name_msg));
+
+      std_msgs::msg::Float32 cost_msg;
+      cost_msg.data = critic_costs[i];
+      critic_scores_->critic_scores.push_back(std::move(cost_msg));
+    }
+    critic_scores_->header.stamp = clock_->now();
+    critics_publisher_->publish(std::move(critic_scores_));
   }
 
   return cmd;
