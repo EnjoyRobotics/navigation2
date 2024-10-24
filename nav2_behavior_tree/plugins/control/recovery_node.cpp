@@ -27,13 +27,13 @@ RecoveryNode::RecoveryNode(
   retry_count_(0),
   last_recovery_time_(rclcpp::Time(0, 0, RCL_ROS_TIME))
 {
-  getInput("number_of_retries", number_of_retries_);
   getInput("timeout", timeout_);
   node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
 }
 
 BT::NodeStatus RecoveryNode::tick()
 {
+  getInput("number_of_retries", number_of_retries_);
   const unsigned children_count = children_nodes_.size();
 
   if (children_count != 2) {
