@@ -76,10 +76,24 @@ public:
         BT::InputPort<double>("backup_dist", 0.15, "Distance to backup"),
         BT::InputPort<double>("backup_speed", 0.025, "Speed at which to backup"),
         BT::InputPort<double>("time_allowance", 10.0, "Allowed time for reversing"),
+        BT::OutputPort<double>(
+          "distance_traveled", "Distance traveled (may be less than requested)"),
         BT::OutputPort<ActionResult::_error_code_type>(
           "error_code_id", "The back up behavior server error code")
       });
   }
+
+  /**
+   * @brief Function to perform some user-defined operation after a timeout
+   * waiting for a result that hasn't been received yet. Also provides access to
+   * the latest feedback message from the action server. Feedback will be nullptr
+   * in subsequent calls to this function if no new feedback is received while waiting for a result.
+   * @param feedback shared_ptr to latest feedback message, nullptr if no new feedback was received
+   */
+  void on_wait_for_result(std::shared_ptr<const typename Action::Feedback> feedback) override;
+
+protected:
+  double distance_traveled_;
 };
 
 }  // namespace nav2_behavior_tree

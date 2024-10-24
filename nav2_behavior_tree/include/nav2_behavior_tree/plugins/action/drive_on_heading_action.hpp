@@ -45,6 +45,11 @@ public:
     const BT::NodeConfiguration & conf);
 
   /**
+   * @brief Function to perform some user-defined operation on tick
+   */
+  void on_tick() override;
+
+  /**
    * @brief Creates list of BT ports
    * @return BT::PortsList Containing basic ports along with node-specific ports
    */
@@ -55,6 +60,7 @@ public:
         BT::InputPort<double>("dist_to_travel", 0.15, "Distance to travel"),
         BT::InputPort<double>("speed", 0.025, "Speed at which to travel"),
         BT::InputPort<double>("time_allowance", 10.0, "Allowed time for driving on heading"),
+        BT::OutputPort<double>("distance_traveled", "Distance traveled (may be less than requested)"),
         BT::OutputPort<Action::Result::_error_code_type>(
           "error_code_id", "The drive on heading behavior server error code")
       });
@@ -74,6 +80,18 @@ public:
    * @brief Function to perform some user-defined operation upon cancellation of the action
    */
   BT::NodeStatus on_cancelled() override;
+
+  /**
+   * @brief Function to perform some user-defined operation after a timeout
+   * waiting for a result that hasn't been received yet. Also provides access to
+   * the latest feedback message from the action server. Feedback will be nullptr
+   * in subsequent calls to this function if no new feedback is received while waiting for a result.
+   * @param feedback shared_ptr to latest feedback message, nullptr if no new feedback was received
+   */
+  void on_wait_for_result(std::shared_ptr<const typename Action::Feedback> feedback) override;
+
+protected:
+  double distance_traveled_;
 };
 
 }  // namespace nav2_behavior_tree
