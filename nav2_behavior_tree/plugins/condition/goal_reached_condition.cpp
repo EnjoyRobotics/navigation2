@@ -52,13 +52,11 @@ void GoalReachedCondition::initialize()
   tf_ = config().blackboard->get<std::shared_ptr<tf2_ros::Buffer>>("tf_buffer");
 
   node_->get_parameter("transform_tolerance", transform_tolerance_);
-
-  initialized_ = true;
 }
 
 BT::NodeStatus GoalReachedCondition::tick()
 {
-  if (!initialized_) {
+  if (!BT::isStatusActive(status())) {
     initialize();
   }
 

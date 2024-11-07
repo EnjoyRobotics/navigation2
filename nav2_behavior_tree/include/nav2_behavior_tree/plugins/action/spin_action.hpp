@@ -87,7 +87,6 @@ public:
 
 private:
   bool is_recovery_;
-  bool initialized_;
 };
 
 }  // namespace nav2_behavior_tree

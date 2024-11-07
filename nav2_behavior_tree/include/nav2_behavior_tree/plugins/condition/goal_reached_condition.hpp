@@ -89,7 +89,6 @@ private:
   rclcpp::Node::SharedPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
 
-  bool initialized_;
   double goal_reached_tol_;
   std::string global_frame_;
   std::string robot_base_frame_;
