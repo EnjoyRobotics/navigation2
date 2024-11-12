@@ -80,7 +80,6 @@ private:
   double transform_tolerance_;
   std::string global_frame_;
   std::string robot_base_frame_;
-  bool initialized_;
 };
 
 }  // namespace nav2_behavior_tree

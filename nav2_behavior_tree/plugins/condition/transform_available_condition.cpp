@@ -55,7 +55,7 @@ void TransformAvailableCondition::initialize()
 
 BT::NodeStatus TransformAvailableCondition::tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 

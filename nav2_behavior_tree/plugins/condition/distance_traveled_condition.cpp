@@ -31,8 +31,7 @@ DistanceTraveledCondition::DistanceTraveledCondition(
   distance_(1.0),
   transform_tolerance_(0.1),
   global_frame_("map"),
-  robot_base_frame_("base_link"),
-  initialized_(false)
+  robot_base_frame_("base_link")
 {
 }
 
@@ -48,7 +47,7 @@ void DistanceTraveledCondition::initialize()
 
 BT::NodeStatus DistanceTraveledCondition::tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 

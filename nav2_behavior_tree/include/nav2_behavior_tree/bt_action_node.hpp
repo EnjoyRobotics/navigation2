@@ -193,7 +193,7 @@ public:
   BT::NodeStatus tick() override
   {
     // first step to be done only at the beginning of the Action
-    if (!BT::isStatusActive(status())) {
+    if (status() == BT::NodeStatus::IDLE) {
       // reset the flag to send the goal or not, allowing the user the option to set it in on_tick
       should_send_goal_ = true;
 

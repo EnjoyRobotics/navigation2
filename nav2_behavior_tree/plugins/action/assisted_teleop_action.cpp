@@ -39,7 +39,7 @@ void AssistedTeleopAction::initialize()
 
 void AssistedTeleopAction::on_tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 

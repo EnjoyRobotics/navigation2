@@ -40,7 +40,7 @@ void TimeExpiredCondition::initialize()
 
 BT::NodeStatus TimeExpiredCondition::tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 

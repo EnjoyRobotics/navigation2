@@ -28,7 +28,6 @@ GoalReachedCondition::GoalReachedCondition(
   const std::string & condition_name,
   const BT::NodeConfiguration & conf)
 : BT::ConditionNode(condition_name, conf),
-  initialized_(false),
   global_frame_("map"),
   robot_base_frame_("base_link")
 {
@@ -56,7 +55,7 @@ void GoalReachedCondition::initialize()
 
 BT::NodeStatus GoalReachedCondition::tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 

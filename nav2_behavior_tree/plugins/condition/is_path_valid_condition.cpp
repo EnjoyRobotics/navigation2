@@ -38,7 +38,7 @@ void IsPathValidCondition::initialize()
 
 BT::NodeStatus IsPathValidCondition::tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 

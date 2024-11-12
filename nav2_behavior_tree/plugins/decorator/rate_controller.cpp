@@ -37,7 +37,7 @@ void RateController::initialize()
 
 BT::NodeStatus RateController::tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 

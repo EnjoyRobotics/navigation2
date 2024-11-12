@@ -44,7 +44,7 @@ void RemovePassedGoals::initialize()
 
 inline BT::NodeStatus RemovePassedGoals::tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 

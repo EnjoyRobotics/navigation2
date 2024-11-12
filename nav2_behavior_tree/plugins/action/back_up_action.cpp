@@ -47,7 +47,7 @@ void nav2_behavior_tree::BackUpAction::initialize()
 
 void BackUpAction::on_tick()
 {
-  if (!BT::isStatusActive(status())) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 
