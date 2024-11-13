@@ -43,12 +43,11 @@ void DriveOnHeadingAction::initialize()
   goal_.target.z = 0.0;
   goal_.speed = speed;
   goal_.time_allowance = rclcpp::Duration::from_seconds(time_allowance);
-  initalized_ = true;
 }
 
 void DriveOnHeadingAction::on_tick()
 {
-  if (!initalized_) {
+  if (status() == BT::NodeStatus::IDLE) {
     initialize();
   }
 }

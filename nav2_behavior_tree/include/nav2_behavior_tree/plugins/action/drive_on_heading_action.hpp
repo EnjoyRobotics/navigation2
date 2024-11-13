@@ -50,11 +50,6 @@ public:
   void initialize();
 
   /**
-   * @brief Function to perform some user-defined operation on tick
-   */
-  void on_tick() override;
-
-  /**
    * @brief Creates list of BT ports
    * @return BT::PortsList Containing basic ports along with node-specific ports
    */
