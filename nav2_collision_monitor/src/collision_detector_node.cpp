@@ -314,8 +314,7 @@ void CollisionDetector::process()
   for (std::shared_ptr<Polygon> polygon : polygons_) {
     state_msg->polygons.push_back(polygon->getName());
     state_msg->detections.push_back(
-      polygon->getPointsInside(
-        collision_points) > polygon->getMaxPoints() + 1);
+      polygon->getPointsInside(collision_points) > polygon->getMaxPoints());
   }
 
   state_pub_->publish(std::move(state_msg));
