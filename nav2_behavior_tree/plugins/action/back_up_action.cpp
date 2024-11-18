@@ -57,11 +57,13 @@ void BackUpAction::on_tick()
 BT::NodeStatus BackUpAction::on_success()
 {
   setOutput("error_code_id", ActionResult::NONE);
+  setOutput("distance_traveled", distance_traveled_);
   return BT::NodeStatus::SUCCESS;
 }
 
 BT::NodeStatus BackUpAction::on_aborted()
 {
+  setOutput("distance_traveled", distance_traveled_);
   setOutput("error_code_id", result_.result->error_code);
   return BT::NodeStatus::FAILURE;
 }
@@ -69,7 +71,16 @@ BT::NodeStatus BackUpAction::on_aborted()
 BT::NodeStatus BackUpAction::on_cancelled()
 {
   setOutput("error_code_id", ActionResult::NONE);
+  setOutput("distance_traveled", distance_traveled_);
   return BT::NodeStatus::SUCCESS;
+}
+
+void BackUpAction::on_wait_for_result(std::shared_ptr<const typename Action::Feedback> feedback)
+{
+  if (!feedback) {
+    return;
+  }
+  distance_traveled_ = feedback->distance_traveled;
 }
 
 }  // namespace nav2_behavior_tree
