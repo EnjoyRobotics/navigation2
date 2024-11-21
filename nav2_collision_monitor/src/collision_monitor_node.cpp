@@ -471,6 +471,15 @@ bool CollisionMonitor::processApproach(
 void CollisionMonitor::printAction(
   const Action & robot_action, const std::shared_ptr<Polygon> action_polygon) const
 {
+  if (action_polygon == nullptr) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Robot to stop due to invalid source."
+      " Either due to data not published yet, or to lack of new data received within the"
+      " sensor timeout, or if impossible to transform data to base frame");
+    return;
+  }
+
   if (robot_action.action_type == STOP) {
     RCLCPP_INFO(
       get_logger(),
