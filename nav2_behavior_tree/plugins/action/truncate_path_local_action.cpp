@@ -88,13 +88,18 @@ inline BT::NodeStatus TruncatePathLocal::tick()
   }
 
   // expand forwards to extract desired length
-  auto forward_pose_it = nav2_util::geometry_utils::first_after_integrated_distance(
-    current_pose, path_.poses.end(), distance_forward);
+  auto forward_pose_it = std::isfinite(distance_forward) ?
+    nav2_util::geometry_utils::first_after_integrated_distance(
+    current_pose, path_.poses.end(), distance_forward) :
+    path_.poses.end();
+
 
   // expand backwards to extract desired length
   // Note: current_pose + 1 is used because reverse iterator points to a cell before it
-  auto backward_pose_it = nav2_util::geometry_utils::first_after_integrated_distance(
-    std::reverse_iterator(current_pose + 1), path_.poses.rend(), distance_backward);
+  auto backward_pose_it = std::isfinite(distance_backward) ?
+    nav2_util::geometry_utils::first_after_integrated_distance(
+    std::reverse_iterator(current_pose + 1), path_.poses.rend(), distance_backward) :
+    path_.poses.rend();
 
   nav_msgs::msg::Path output_path;
   output_path.header = path_.header;

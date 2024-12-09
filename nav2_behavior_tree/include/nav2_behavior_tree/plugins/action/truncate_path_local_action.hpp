@@ -54,10 +54,10 @@ public:
       BT::OutputPort<nav_msgs::msg::Path>(
         "output_path", "Path truncated to a certain distance around robot"),
       BT::InputPort<double>(
-        "distance_forward", 8.0,
+        "distance_forward", std::numeric_limits<double>::infinity(),
         "Distance in forward direction"),
       BT::InputPort<double>(
-        "distance_backward", 4.0,
+        "distance_backward", -std::numeric_limits<double>::infinity(),
         "Distance in backward direction"),
       BT::InputPort<std::string>(
         "robot_frame", "base_link",
