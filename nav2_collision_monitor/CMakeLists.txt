@@ -8,6 +8,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -15,6 +16,7 @@ find_package(nav2_common REQUIRED)
 find_package(nav2_util REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
 find_package(nav2_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 ### Header ###
 
@@ -31,12 +33,14 @@ set(dependencies
   rclcpp_components
   sensor_msgs
   geometry_msgs
+  std_msgs
   tf2
   tf2_ros
   tf2_geometry_msgs
   nav2_util
   nav2_costmap_2d
   nav2_msgs
+  visualization_msgs
 )
 
 set(monitor_executable_name collision_monitor)
@@ -47,20 +51,24 @@ set(detector_library_name ${detector_executable_name}_core)
 add_library(${monitor_library_name} SHARED
   src/collision_monitor_node.cpp
   src/polygon.cpp
+  src/velocity_polygon.cpp
   src/circle.cpp
   src/source.cpp
   src/scan.cpp
   src/pointcloud.cpp
+  src/polygon_source.cpp
   src/range.cpp
   src/kinematics.cpp
 )
 add_library(${detector_library_name} SHARED
   src/collision_detector_node.cpp
   src/polygon.cpp
+  src/velocity_polygon.cpp
   src/circle.cpp
   src/source.cpp
   src/scan.cpp
   src/pointcloud.cpp
+  src/polygon_source.cpp
   src/range.cpp
   src/kinematics.cpp
 )
@@ -127,6 +135,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 
   find_package(ament_cmake_gtest REQUIRED)
+  add_subdirectory(test)
 endif()
 
 ### Ament stuff ###
