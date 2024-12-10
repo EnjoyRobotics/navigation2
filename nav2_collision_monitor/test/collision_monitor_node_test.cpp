@@ -196,7 +196,7 @@ protected:
   rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr scan_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr range_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::PolygonInstanceStamped>::SharedPtr polygon_source_pub_;
+  rclcpp::Publisher<nav2_msgs::msg::PolygonInstanceStamped>::SharedPtr polygon_source_pub_;
 
   // Working with cmd_vel_in/cmd_vel_out
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_in_pub_;
@@ -230,7 +230,7 @@ Tester::Tester()
     POINTCLOUD_NAME, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
   range_pub_ = cm_->create_publisher<sensor_msgs::msg::Range>(
     RANGE_NAME, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
-  polygon_source_pub_ = cm_->create_publisher<geometry_msgs::msg::PolygonInstanceStamped>(
+  polygon_source_pub_ = cm_->create_publisher<nav2_msgs::msg::PolygonInstanceStamped>(
     POLYGON_NAME, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
 
   cmd_vel_in_pub_ = cm_->create_publisher<geometry_msgs::msg::Twist>(
@@ -660,8 +660,8 @@ void Tester::publishRange(const double dist, const rclcpp::Time & stamp)
 
 void Tester::publishPolygon(const double dist, const rclcpp::Time & stamp)
 {
-  std::unique_ptr<geometry_msgs::msg::PolygonInstanceStamped> msg =
-    std::make_unique<geometry_msgs::msg::PolygonInstanceStamped>();
+  std::unique_ptr<nav2_msgs::msg::PolygonInstanceStamped> msg =
+    std::make_unique<nav2_msgs::msg::PolygonInstanceStamped>();
 
   msg->header.frame_id = SOURCE_FRAME_ID;
   msg->header.stamp = stamp;

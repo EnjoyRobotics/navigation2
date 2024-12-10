@@ -60,7 +60,7 @@ void PolygonSource::configure()
   getParameters(source_topic);
 
   rclcpp::QoS qos = rclcpp::SensorDataQoS();  // set to default
-  data_sub_ = node->create_subscription<geometry_msgs::msg::PolygonInstanceStamped>(
+  data_sub_ = node->create_subscription<nav2_msgs::msg::PolygonInstanceStamped>(
     source_topic, qos,
     std::bind(&PolygonSource::dataCallback, this, std::placeholders::_1));
 }
@@ -79,7 +79,7 @@ bool PolygonSource::getData(
   data_.erase(
     std::remove_if(
       data_.begin(), data_.end(),
-      [this, curr_time](const geometry_msgs::msg::PolygonInstanceStamped & polygon_stamped) {
+      [this, curr_time](const nav2_msgs::msg::PolygonInstanceStamped & polygon_stamped) {
         return curr_time - rclcpp::Time(polygon_stamped.header.stamp) > source_timeout_;
       }), data_.end());
 
@@ -165,7 +165,7 @@ void PolygonSource::getParameters(std::string & source_topic)
   sampling_distance_ = node->get_parameter(source_name_ + ".sampling_distance").as_double();
 }
 
-void PolygonSource::dataCallback(geometry_msgs::msg::PolygonInstanceStamped::ConstSharedPtr msg)
+void PolygonSource::dataCallback(nav2_msgs::msg::PolygonInstanceStamped::ConstSharedPtr msg)
 {
   auto node = node_.lock();
   if (!node) {

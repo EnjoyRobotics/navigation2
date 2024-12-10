@@ -162,11 +162,11 @@ public:
 
   void publishPolygon(const rclcpp::Time & stamp)
   {
-    polygon_pub_ = this->create_publisher<geometry_msgs::msg::PolygonInstanceStamped>(
+    polygon_pub_ = this->create_publisher<nav2_msgs::msg::PolygonInstanceStamped>(
       POLYGON_TOPIC, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
 
-    std::unique_ptr<geometry_msgs::msg::PolygonInstanceStamped> msg =
-      std::make_unique<geometry_msgs::msg::PolygonInstanceStamped>();
+    std::unique_ptr<nav2_msgs::msg::PolygonInstanceStamped> msg =
+      std::make_unique<nav2_msgs::msg::PolygonInstanceStamped>();
 
     msg->header.frame_id = SOURCE_FRAME_ID;
     msg->header.stamp = stamp;
@@ -196,7 +196,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr scan_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr range_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::PolygonInstanceStamped>::SharedPtr polygon_pub_;
+  rclcpp::Publisher<nav2_msgs::msg::PolygonInstanceStamped>::SharedPtr polygon_pub_;
 };  // TestNode
 
 class ScanWrapper : public nav2_collision_monitor::Scan
