@@ -78,7 +78,13 @@ void CriticManager::evalTrajectoriesScores(
     if (data.fail_flag) {
       break;
     }
-    critics_[q]->score(data);
+
+    const std::unique_ptr<critics::CriticFunction> & critic = critics_[q];
+    if (!critic) {
+      continue;
+    }
+
+    critic->score(data);
   }
 }
 
