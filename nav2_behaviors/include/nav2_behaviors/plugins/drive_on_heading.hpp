@@ -123,10 +123,34 @@ public:
       return ResultStatus{Status::SUCCEEDED, ActionT::Goal::NONE};
     }
 
-    auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>();
+    auto cmd_vel = std::make_shared<geometry_msgs::msg::Twist>();
     cmd_vel->linear.y = 0.0;
     cmd_vel->angular.z = 0.0;
-    cmd_vel->linear.x = command_speed_;
+    if (!last_vel_ || (acceleration_limit_ <= 0.0 && deceleration_limit_ <= 0.0)) {
+      cmd_vel->linear.x = command_speed_;
+    } else {
+      bool forward = command_speed_ > 0.0 ? true : false;
+      auto current_speed = last_vel_->linear.x;
+      auto remaining_distance = std::fabs(command_x_) - distance;
+      double min_feasible_speed = -std::numeric_limits<double>::infinity();
+      double max_feasible_speed = std::numeric_limits<double>::infinity();
+      if (deceleration_limit_ > 0.0) {
+        min_feasible_speed = current_speed - deceleration_limit_ / this->cycle_frequency_;
+        if (forward) {
+          max_feasible_speed = std::sqrt(2.0 * deceleration_limit_ * remaining_distance);
+        }
+      }
+      if (acceleration_limit_ > 0.0) {
+        max_feasible_speed = current_speed + acceleration_limit_ / this->cycle_frequency_;
+        if (!forward) {
+          min_feasible_speed = std::max(
+            -std::sqrt(
+              2.0 * acceleration_limit_ * remaining_distance), min_feasible_speed);
+        }
+      }
+
+      cmd_vel->linear.x = std::clamp(command_speed_, min_feasible_speed, max_feasible_speed);
+    }
 
     geometry_msgs::msg::Pose2D pose2d;
     pose2d.x = current_pose.pose.position.x;
@@ -139,9 +163,21 @@ public:
       return ResultStatus{Status::FAILED, ActionT::Goal::COLLISION_AHEAD};
     }
 
-    this->vel_pub_->publish(std::move(cmd_vel));
+    this->vel_pub_->publish(*cmd_vel);
+
+    last_vel_ = cmd_vel;
 
     return ResultStatus{Status::RUNNING, ActionT::Goal::NONE};
+  }
+
+  void onCleanup() override
+  {
+    last_vel_.reset();
+  }
+
+  void onActionCompletion() override
+  {
+    last_vel_.reset();
   }
 
 protected:
@@ -198,6 +234,15 @@ protected:
       node,
       sim_ahead_time, rclcpp::ParameterValue(2.0));
     node->get_parameter(sim_ahead_time, simulate_ahead_time_);
+
+    nav2_util::declare_parameter_if_not_declared(
+      node, this->behavior_name_ + ".acceleration_limit",
+      rclcpp::ParameterValue(0.0));
+    nav2_util::declare_parameter_if_not_declared(
+      node, this->behavior_name_ + ".deceleration_limit",
+      rclcpp::ParameterValue(0.0));
+    node->get_parameter(this->behavior_name_ + ".acceleration_limit", acceleration_limit_);
+    node->get_parameter(this->behavior_name_ + ".deceleration_limit", deceleration_limit_);
   }
 
   typename ActionT::Feedback::SharedPtr feedback_;
@@ -208,6 +253,9 @@ protected:
   rclcpp::Duration command_time_allowance_{0, 0};
   rclcpp::Time end_time_;
   double simulate_ahead_time_;
+  double acceleration_limit_;
+  double deceleration_limit_;
+  geometry_msgs::msg::Twist::SharedPtr last_vel_;
 };
 
 }  // namespace nav2_behaviors
