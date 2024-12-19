@@ -123,14 +123,14 @@ public:
       return ResultStatus{Status::SUCCEEDED, ActionT::Goal::NONE};
     }
 
-    auto cmd_vel = std::make_shared<geometry_msgs::msg::Twist>();
+    auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>();
     cmd_vel->linear.y = 0.0;
     cmd_vel->angular.z = 0.0;
     if (!last_vel_ || (acceleration_limit_ <= 0.0 && deceleration_limit_ <= 0.0)) {
       cmd_vel->linear.x = command_speed_;
     } else {
       bool forward = command_speed_ > 0.0 ? true : false;
-      auto current_speed = last_vel_->linear.x;
+      auto current_speed = *last_vel_;
       auto remaining_distance = std::fabs(command_x_) - distance;
       double min_feasible_speed = -std::numeric_limits<double>::infinity();
       double max_feasible_speed = std::numeric_limits<double>::infinity();
@@ -163,9 +163,9 @@ public:
       return ResultStatus{Status::FAILED, ActionT::Goal::COLLISION_AHEAD};
     }
 
-    this->vel_pub_->publish(*cmd_vel);
+    last_vel_ = std::make_shared<double>(cmd_vel->linear.x);
 
-    last_vel_ = cmd_vel;
+    this->vel_pub_->publish(std::move(cmd_vel));
 
     return ResultStatus{Status::RUNNING, ActionT::Goal::NONE};
   }
@@ -255,7 +255,7 @@ protected:
   double simulate_ahead_time_;
   double acceleration_limit_;
   double deceleration_limit_;
-  geometry_msgs::msg::Twist::SharedPtr last_vel_;
+  std::shared_ptr<double> last_vel_;
 };
 
 }  // namespace nav2_behaviors
