@@ -129,27 +129,31 @@ public:
     if (!last_vel_ || (acceleration_limit_ <= 0.0 && deceleration_limit_ <= 0.0)) {
       cmd_vel->linear.x = command_speed_;
     } else {
-      bool forward = command_speed_ > 0.0 ? true : false;
       auto current_speed = *last_vel_;
       auto remaining_distance = std::fabs(command_x_) - distance;
       double min_feasible_speed = -std::numeric_limits<double>::infinity();
       double max_feasible_speed = std::numeric_limits<double>::infinity();
       if (deceleration_limit_ > 0.0) {
         min_feasible_speed = current_speed - deceleration_limit_ / this->cycle_frequency_;
-        if (forward) {
-          max_feasible_speed = std::sqrt(2.0 * deceleration_limit_ * remaining_distance);
-        }
       }
       if (acceleration_limit_ > 0.0) {
         max_feasible_speed = current_speed + acceleration_limit_ / this->cycle_frequency_;
-        if (!forward) {
-          min_feasible_speed = std::max(
-            -std::sqrt(
-              2.0 * acceleration_limit_ * remaining_distance), min_feasible_speed);
+      }
+      cmd_vel->linear.x = std::clamp(command_speed_, min_feasible_speed, max_feasible_speed);
+
+      // Check if we need to slow down to avoid overshooting
+      bool forward = command_speed_ > 0.0 ? true : false;
+      if ((forward && deceleration_limit_ > 0.0)) {
+        double max_vel_to_stop = std::sqrt(2.0 * deceleration_limit_ * remaining_distance);
+        if (max_vel_to_stop < cmd_vel->linear.x) {
+          cmd_vel->linear.x = max_vel_to_stop;
+        }
+      } else if ((!forward && acceleration_limit_ > 0.0)) {
+        double max_vel_to_stop = -std::sqrt(2.0 * acceleration_limit_ * remaining_distance);
+        if (max_vel_to_stop > cmd_vel->linear.x) {
+          cmd_vel->linear.x = max_vel_to_stop;
         }
       }
-
-      cmd_vel->linear.x = std::clamp(command_speed_, min_feasible_speed, max_feasible_speed);
     }
 
     geometry_msgs::msg::Pose2D pose2d;
