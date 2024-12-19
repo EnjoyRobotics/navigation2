@@ -126,10 +126,13 @@ public:
     auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>();
     cmd_vel->linear.y = 0.0;
     cmd_vel->angular.z = 0.0;
-    if (!last_vel_ || (acceleration_limit_ <= 0.0 && deceleration_limit_ <= 0.0)) {
+    if (acceleration_limit_ <= 0.0 && deceleration_limit_ <= 0.0) {
       cmd_vel->linear.x = command_speed_;
     } else {
-      auto current_speed = *last_vel_;
+      double current_speed = 0.0;
+      if (last_vel_) {
+        current_speed = *last_vel_;
+      }
       auto remaining_distance = std::fabs(command_x_) - distance;
       double min_feasible_speed = -std::numeric_limits<double>::infinity();
       double max_feasible_speed = std::numeric_limits<double>::infinity();
