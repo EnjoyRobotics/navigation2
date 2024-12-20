@@ -134,9 +134,11 @@ void Optimizer::reset()
 geometry_msgs::msg::TwistStamped Optimizer::evalControl(
   const geometry_msgs::msg::PoseStamped & robot_pose,
   const geometry_msgs::msg::Twist & robot_speed,
-  const nav_msgs::msg::Path & plan, nav2_core::GoalChecker * goal_checker)
+  const nav_msgs::msg::Path & plan,
+  const geometry_msgs::msg::Pose & goal,
+  nav2_core::GoalChecker * goal_checker)
 {
-  prepare(robot_pose, robot_speed, plan, goal_checker);
+  prepare(robot_pose, robot_speed, plan, goal, goal_checker);
 
   do {
     optimize();
@@ -177,7 +179,7 @@ xt::xtensor<float, 1> Optimizer::getOptimizationResults()
 
   // create a dummy_data object to pass to evalTrajectory
   CriticData dummy_data = {
-    state_, dummy_trajectories, path_, costs, settings_.model_dt,
+    state_, dummy_trajectories, path_, goal_, costs, settings_.model_dt,
     false, critics_data_.goal_checker, critics_data_.motion_model, std::nullopt, std::nullopt};
   dummy_data.furthest_reached_path_point.reset();
   dummy_data.path_pts_valid.reset();
@@ -213,11 +215,15 @@ bool Optimizer::fallback(bool fail)
 void Optimizer::prepare(
   const geometry_msgs::msg::PoseStamped & robot_pose,
   const geometry_msgs::msg::Twist & robot_speed,
-  const nav_msgs::msg::Path & plan, nav2_core::GoalChecker * goal_checker)
+  const nav_msgs::msg::Path & plan,
+  const geometry_msgs::msg::Pose & goal,
+  nav2_core::GoalChecker * goal_checker)
 {
   state_.pose = robot_pose;
   state_.speed = robot_speed;
   path_ = utils::toTensor(plan);
+  goal_ = goal;
+
   costs_.fill(0);
 
   critics_data_.fail_flag = false;
