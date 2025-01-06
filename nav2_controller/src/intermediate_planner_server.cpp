@@ -574,28 +574,8 @@ IntermediatePlannerServer::computePlan()
       }
     }
 
-    // Transform path back to global frame
-    RCLCPP_DEBUG(
-      logger_, "Transforming path to global (%s) frame...",
-      costmap_ros_->getGlobalFrameID().c_str());
-    nav_msgs::msg::Path path_out_global;
-    path_out_global.header.frame_id = global_path.header.frame_id;
-    path_out_global.header.stamp = node_->get_clock()->now();
-    path_out_global.poses.reserve(path_out_local.poses.size());
-    for (auto & pose : path_out_local.poses) {
-      pose.header.frame_id = costmap_ros_->getGlobalFrameID();
-      pose.header.stamp = rclcpp::Time(0);
-      geometry_msgs::msg::PoseStamped transformed_pose;
-      try {
-        tf_->transform(pose, transformed_pose, global_path.header.frame_id);
-      } catch (tf2::TransformException & ex) {
-        throw nav2_core::PlannerTFError("Failed to transform local path to global frame");
-      }
-      path_out_global.poses.push_back(transformed_pose);
-    }
-    result->local_path = path_out_global;
-
     // Publish the plan for visualization purposes
+    result->local_path = path_out_local;
     publishPlan(result->local_path);
 
     auto cycle_duration = steady_clock_.now() - start_time;
