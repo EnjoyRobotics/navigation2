@@ -161,6 +161,48 @@ void Optimizer::optimize()
   }
 }
 
+xt::xtensor<float, 1> Optimizer::getOptimizationResults()
+{
+  // get the final optimized trajectory
+  const xt::xtensor<float, 2> optimized_trajectory = getOptimizedTrajectory();
+  xt::xtensor<float, 1> costs = xt::zeros<float>({1});
+
+  // evalTrajectory evals multiple trajectories, but we only have one
+  // create a dummy_trajectories object and put the optimized in it
+  models::Trajectories dummy_trajectories;
+  dummy_trajectories.reset(1, settings_.time_steps);
+  dummy_trajectories.x += xt::view(optimized_trajectory, xt::all(), 0);
+  dummy_trajectories.y += xt::view(optimized_trajectory, xt::all(), 1);
+  dummy_trajectories.yaws += xt::view(optimized_trajectory, xt::all(), 2);
+
+  // create a dummy_data object to pass to evalTrajectory
+  CriticData dummy_data = {
+    state_, dummy_trajectories, path_, costs, settings_.model_dt,
+    false, critics_data_.goal_checker, critics_data_.motion_model, std::nullopt, std::nullopt};
+  dummy_data.furthest_reached_path_point.reset();
+  dummy_data.path_pts_valid.reset();
+
+  // use evalTrajectoriesScores
+  critic_manager_.evalTrajectoriesScores(dummy_data);
+
+  size_t num_critics = critic_manager_.getCriticNames().size();
+
+  xt::xtensor<float, 1> critic_scores = xt::zeros<float>(std::vector<size_t>{num_critics});
+  for (size_t i = 0; i < num_critics; i++) {
+    critic_scores(i) = dummy_data.costs(0);  // Assuming costs are updated for each critic
+  }
+
+  return critic_scores;
+
+  // evaluate the optimized trajectory
+  // return critic_manager_.evalTrajectory(dummy_data);
+}
+
+std::vector<std::string> Optimizer::getCriticNames() const
+{
+  return critic_manager_.getCriticNames();
+}
+
 bool Optimizer::fallback(bool fail)
 {
   static size_t counter = 0;
