@@ -24,6 +24,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BehaviorTreeLog.msg"
   "msg/Particle.msg"
   "msg/ParticleCloud.msg"
+  "msg/PolygonInstance.msg"
+  "msg/PolygonInstanceStamped.msg"
   "msg/MissedWaypoint.msg"
   "srv/GetCostmap.srv"
   "srv/IsPathValid.srv"
