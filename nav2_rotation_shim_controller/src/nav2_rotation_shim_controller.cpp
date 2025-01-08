@@ -17,6 +17,7 @@
 #include <memory>
 #include <vector>
 #include <utility>
+#include <cmath>
 
 #include "nav2_rotation_shim_controller/nav2_rotation_shim_controller.hpp"
 #include "nav2_rotation_shim_controller/tools/utils.hpp"
@@ -54,6 +55,9 @@ void RotationShimController::configure(
     node, plugin_name_ + ".angular_dist_threshold", rclcpp::ParameterValue(0.785));  // 45 deg
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name_ + ".angular_disengage_threshold", rclcpp::ParameterValue(0.785));
+  // stop before giving control to primary controller
+  nav2_util::declare_parameter_if_not_declared(
+    node, plugin_name_ + ".child_controller_max_ang_vel", rclcpp::ParameterValue(0.0));
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name_ + ".forward_sampling_distance", rclcpp::ParameterValue(0.5));
   nav2_util::declare_parameter_if_not_declared(
@@ -69,6 +73,8 @@ void RotationShimController::configure(
 
   node->get_parameter(plugin_name_ + ".angular_dist_threshold", angular_dist_threshold_);
   node->get_parameter(plugin_name_ + ".angular_disengage_threshold", angular_disengage_threshold_);
+  node->get_parameter(
+    plugin_name_ + ".child_controller_max_ang_vel", child_controller_max_ang_vel_);
   node->get_parameter(plugin_name_ + ".forward_sampling_distance", forward_sampling_distance_);
   node->get_parameter(
     plugin_name_ + ".rotate_to_heading_angular_vel",
@@ -282,7 +288,10 @@ RotationShimController::computeRotateToHeadingCommand(
   geometry_msgs::msg::TwistStamped cmd_vel;
   cmd_vel.header = pose.header;
   const double sign = angular_distance_to_heading > 0.0 ? 1.0 : -1.0;
-  const double angular_vel = sign * rotate_to_heading_angular_vel_;
+  const double angular_decel_factor =
+    pow(child_controller_max_ang_vel_, 2) / (2 * angular_disengage_threshold_);
+  const double angular_vel = sign *
+    sqrt(2 * angular_decel_factor * abs(angular_distance_to_heading));
   const double & dt = control_duration_;
   const double min_feasible_angular_speed = velocity.angular.z - max_angular_accel_ * dt;
   const double max_feasible_angular_speed = velocity.angular.z + max_angular_accel_ * dt;
