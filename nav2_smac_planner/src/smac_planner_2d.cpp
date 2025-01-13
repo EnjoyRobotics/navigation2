@@ -55,6 +55,7 @@ void SmacPlanner2D::configure(
   _logger = node->get_logger();
   _clock = node->get_clock();
   _costmap = costmap_ros->getCostmap();
+  _costmap_ros = costmap_ros;
   _name = name;
   _global_frame = costmap_ros->getGlobalFrameID();
 
@@ -90,6 +91,21 @@ void SmacPlanner2D::configure(
   nav2_util::declare_parameter_if_not_declared(
     node, name + ".max_planning_time", rclcpp::ParameterValue(2.0));
   node->get_parameter(name + ".max_planning_time", _max_planning_time);
+
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".odom_penalty", rclcpp::ParameterValue(0.0));
+  node->get_parameter(name + ".odom_penalty", _search_info.odom_penalty);
+
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".odom_rollout_time", rclcpp::ParameterValue(0.5));
+  node->get_parameter(name + ".odom_rollout_time", _search_info.odom_rollout_time);
+
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".odom_min_vel", rclcpp::ParameterValue(0.0));
+  node->get_parameter(name + ".odom_min_vel", _search_info.odom_min_vel);
+
+  // TODO add parameters for custom critics
+
 
   _motion_model = MotionModel::TWOD;
 
@@ -140,6 +156,15 @@ void SmacPlanner2D::configure(
   }
 
   _raw_plan_publisher = node->create_publisher<nav_msgs::msg::Path>("unsmoothed_plan", 1);
+
+  // TODO set odom topic from params
+  _odometry_subscriber = node->create_subscription<nav_msgs::msg::Odometry>(
+    "/odom_combined", 1, [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
+      // TODO transform pose to costmap(?) frame
+      // RCLCPP_INFO(_logger, "Got odometry message");
+      if (_a_star) _a_star->odometry = msg;
+      else RCLCPP_ERROR(_logger, "A* not initialized, cannot set odometry");
+    });
 
   RCLCPP_INFO(
     _logger, "Configured plugin %s of type SmacPlanner2D with "
@@ -258,9 +283,10 @@ nav_msgs::msg::Path SmacPlanner2D::createPlan(
   Node2D::CoordinateVector path;
   int num_iterations = 0;
   // Note: All exceptions thrown are handled by the planner server and returned to the action
+  auto expansions = std::make_shared<ExpansionT<Node2D::Coordinates>>();
   if (!_a_star->createPath(
       path, num_iterations,
-      _tolerance / static_cast<float>(costmap->getResolution())))
+      _tolerance / static_cast<float>(costmap->getResolution()), expansions))
   {
     if (num_iterations < _a_star->getMaxIterations()) {
       throw nav2_core::NoValidPathCouldBeFound("no valid path found");
@@ -268,6 +294,9 @@ nav_msgs::msg::Path SmacPlanner2D::createPlan(
       throw nav2_core::PlannerTimedOut("exceeded maximum iterations");
     }
   }
+
+  ExpansionsPublisher<Node2D> expansions_publisher(_node.lock(), _costmap_ros, "/expansions");
+  expansions_publisher.publish(*expansions);
 
   // Convert to world coordinates
   plan.poses.reserve(path.size());
