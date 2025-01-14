@@ -122,6 +122,8 @@ protected:
   MotionModel _motion_model;
   std::mutex _mutex;
   rclcpp_lifecycle::LifecycleNode::WeakPtr _node;
+  bool _publish_expansions;
+  std::string _expansions_topic_base;
 
   // Dynamic parameters handler
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr _dyn_params_handler;

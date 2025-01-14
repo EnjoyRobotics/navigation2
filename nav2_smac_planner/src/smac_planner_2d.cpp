@@ -104,6 +104,14 @@ void SmacPlanner2D::configure(
     node, name + ".odom_min_vel", rclcpp::ParameterValue(0.0));
   node->get_parameter(name + ".odom_min_vel", _search_info.odom_min_vel);
 
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".publish_expansions", rclcpp::ParameterValue(false));
+  node->get_parameter(name + ".publish_expansions", _publish_expansions);
+
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".expansions_topic_base", rclcpp::ParameterValue("expansions"));
+  node->get_parameter(name + ".expansions_topic_base", _expansions_topic_base);
+
   // TODO add parameters for custom critics
 
 
@@ -283,7 +291,10 @@ nav_msgs::msg::Path SmacPlanner2D::createPlan(
   Node2D::CoordinateVector path;
   int num_iterations = 0;
   // Note: All exceptions thrown are handled by the planner server and returned to the action
-  auto expansions = std::make_shared<ExpansionT<Node2D::Coordinates>>();
+  std::shared_ptr<ExpansionT<Node2D::Coordinates>> expansions;
+  if (_publish_expansions) {
+    expansions = std::make_shared<ExpansionT<Node2D::Coordinates>>();
+  }
   if (!_a_star->createPath(
       path, num_iterations,
       _tolerance / static_cast<float>(costmap->getResolution()), expansions))
@@ -295,8 +306,11 @@ nav_msgs::msg::Path SmacPlanner2D::createPlan(
     }
   }
 
-  ExpansionsPublisher<Node2D> expansions_publisher(_node.lock(), _costmap_ros, "/expansions");
-  expansions_publisher.publish(*expansions);
+  if (_publish_expansions) {
+    auto node = _node.lock();
+    ExpansionsPublisher<Node2D> expansions_publisher(node, _costmap_ros, _expansions_topic_base);
+    expansions_publisher.publish(*expansions);
+  }
 
   // Convert to world coordinates
   plan.poses.reserve(path.size());
