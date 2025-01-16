@@ -56,6 +56,7 @@ float ObstaclesCritic::findCircumscribedCost(
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap)
 {
   double result = -1.0;
+  bool inflation_layer_found = false;
   const double circum_radius = costmap->getLayeredCostmap()->getCircumscribedRadius();
   if (static_cast<float>(circum_radius) == circumscribed_radius_) {
     // early return if footprint size is unchanged
@@ -63,15 +64,24 @@ float ObstaclesCritic::findCircumscribedCost(
   }
 
   // check if the costmap has an inflation layer
-  const auto inflation_layer = nav2_costmap_2d::InflationLayer::getInflationLayer(
-    costmap,
-    inflation_layer_name_);
-  if (inflation_layer != nullptr) {
+  for (auto layer = costmap->getLayeredCostmap()->getPlugins()->begin();
+    layer != costmap->getLayeredCostmap()->getPlugins()->end();
+    ++layer)
+  {
+    auto inflation_layer = std::dynamic_pointer_cast<nav2_costmap_2d::InflationLayer>(*layer);
+    if (!inflation_layer) {
+      continue;
+    }
+
+    inflation_layer_found = true;
     const double resolution = costmap->getCostmap()->getResolution();
     result = inflation_layer->computeCost(circum_radius / resolution);
-    inflation_scale_factor_ = static_cast<float>(inflation_layer->getCostScalingFactor());
-    inflation_radius_ = static_cast<float>(inflation_layer->getInflationRadius());
-  } else {
+    auto getParam = parameters_handler_->getParamGetter(name_);
+    getParam(inflation_scale_factor_, "cost_scaling_factor", 10.0);
+    getParam(inflation_radius_, "inflation_radius", 0.55);
+  }
+
+  if (!inflation_layer_found) {
     RCLCPP_WARN(
       logger_,
       "No inflation layer found in costmap configuration. "
