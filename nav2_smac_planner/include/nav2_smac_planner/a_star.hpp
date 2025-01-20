@@ -35,6 +35,7 @@
 #include "nav2_smac_planner/node_basic.hpp"
 #include "nav2_smac_planner/types.hpp"
 #include "nav2_smac_planner/constants.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 
 namespace nav2_smac_planner
 {
@@ -103,9 +104,11 @@ public:
    * @param path Reference to a vector of indicies of generated path
    * @param num_iterations Reference to number of iterations to create plan
    * @param tolerance Reference to tolerance in costmap nodes
+   * @param expansions Return costs of expanded nodes (if not nullptr)
    * @return if plan was successful
    */
-  bool createPath(CoordinateVector & path, int & num_iterations, const float & tolerance);
+  bool createPath(CoordinateVector & path, int & num_iterations, const float & tolerance,
+    std::shared_ptr<ExpansionT<Coordinates>> expansions = nullptr);
 
   /**
    * @brief Sets the collision checker to use
@@ -183,6 +186,8 @@ public:
    */
   unsigned int & getSizeDim3();
 
+  //! Odometry for rollout
+  std::shared_ptr<nav_msgs::msg::Odometry> odometry;
 protected:
   /**
    * @brief Get pointer to next goal in open set
@@ -216,6 +221,9 @@ protected:
    * @return Heuristic cost for node
    */
   inline float getHeuristicCost(const NodePtr & node);
+
+  RolloutT getRollout() const;
+  float getOdomCost(const NodePtr & node, const RolloutT & rollout);
 
   /**
    * @brief Check if inputs to planner are valid
@@ -259,6 +267,8 @@ protected:
   GridCollisionChecker * _collision_checker;
   nav2_costmap_2d::Costmap2D * _costmap;
   std::unique_ptr<AnalyticExpansion<NodeT>> _expander;
+
+  rclcpp::Logger _logger = rclcpp::get_logger("a_star");
 };
 
 }  // namespace nav2_smac_planner

@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License. Reserved.
 
+#include <unordered_map>
 #include <omp.h>
 #include <cmath>
 #include <stdexcept>
@@ -26,6 +27,9 @@
 #include <vector>
 
 #include "nav2_smac_planner/a_star.hpp"
+#include "nav_msgs/msg/path.hpp"
+#include "angles/angles.h"
+
 using namespace std::chrono;  // NOLINT
 
 namespace nav2_smac_planner
@@ -223,9 +227,100 @@ bool AStarAlgorithm<NodeT>::areInputsValid()
 }
 
 template<typename NodeT>
+RolloutT AStarAlgorithm<NodeT>::getRollout() const
+{
+  RolloutT rollout;
+
+  // TODO should these be parameters?
+  static const size_t n_points = 6;  // for rollout
+  static const float min_time_step = 0.2;  // for rollout
+
+  // Calculate rollout
+  if (!odometry) {
+    // RCLCPP_ERROR(_logger, "No odometry received for rollout");
+    return {};
+  }
+
+  const float vx_abs = std::abs(odometry->twist.twist.linear.x);
+  if (_search_info.odom_min_vel > 0.0 && vx_abs < _search_info.odom_min_vel) {
+    // RCLCPP_ERROR(_logger, "Odometry velocity below minimum for rollout");
+    return {};
+  }
+
+  if (_search_info.odom_penalty <= 0.0 || _search_info.odom_rollout_time <= 0.0) {
+    // RCLCPP_ERROR(_logger, "Rollout disabled");
+    return {};
+  }
+
+  geometry_msgs::msg::Pose2D start_pose;
+  start_pose.x = odometry->pose.pose.position.x;
+  start_pose.y = odometry->pose.pose.position.y;
+  start_pose.theta = tf2::getYaw(odometry->pose.pose.orientation);
+
+  const float time_step = std::max<float>(
+    _search_info.odom_rollout_time / n_points, min_time_step);
+
+  // TODO implement for non differential drive
+  geometry_msgs::msg::Pose2D pose = start_pose;
+  const float dx = odometry->twist.twist.linear.x * time_step;
+  const float dtheta = odometry->twist.twist.angular.z * time_step;
+
+  for (size_t i = 0; i < n_points; ++i) {
+    if (odometry->twist.twist.angular.z == 0.0) {
+      pose.x = start_pose.x + dx * i * std::cos(start_pose.theta);
+      pose.y = start_pose.y + dx * i * std::sin(start_pose.theta);
+      pose.theta = start_pose.theta;
+    } else {
+      pose.x += dx * std::cos(pose.theta);
+      pose.y += dx * std::sin(pose.theta);
+      pose.theta += dtheta;
+    }
+
+    const float dist = std::hypot(
+      pose.x - odometry->pose.pose.position.x,
+      pose.y - odometry->pose.pose.position.y);
+    const float angle = std::atan2(
+      pose.y - odometry->pose.pose.position.y,
+      pose.x - odometry->pose.pose.position.x);
+    rollout.insert({dist, angle});
+  }
+
+  return rollout;
+}
+
+template<typename NodeT>
+float AStarAlgorithm<NodeT>::getOdomCost(
+  const NodePtr & node, const RolloutT & rollout)
+{
+  // Note: this assumes x and y node coords refer to the same pixel in the costmap
+  const Coordinates node_coords =
+    NodeT::getCoords(node->getIndex(), getSizeX(), getSizeDim3());
+  double pixel_x, pixel_y;
+  _costmap->mapToWorld(node_coords.x, node_coords.y, pixel_x, pixel_y);
+
+  const float dist_from_center = std::hypot(
+    pixel_x - odometry->pose.pose.position.x,
+    pixel_y - odometry->pose.pose.position.y);
+
+  const auto angle_iter = rollout.lower_bound(dist_from_center);
+  if (angle_iter == rollout.end()) {
+    return 0.0;
+  }
+
+  const float rollout_angle = angle_iter->second;
+  const float pixel_angle = std::atan2(
+    pixel_y - odometry->pose.pose.position.y,
+    pixel_x - odometry->pose.pose.position.x);
+  const float angle_diff = angles::shortest_angular_distance(pixel_angle, rollout_angle);
+
+  return _search_info.odom_penalty * std::abs(angle_diff) / M_PI;
+}
+
+template<typename NodeT>
 bool AStarAlgorithm<NodeT>::createPath(
   CoordinateVector & path, int & iterations,
-  const float & tolerance)
+  const float & tolerance,
+  std::shared_ptr<ExpansionT<Coordinates>> expansions)
 {
   steady_clock::time_point start_time = steady_clock::now();
   _tolerance = tolerance;
@@ -235,6 +330,14 @@ bool AStarAlgorithm<NodeT>::createPath(
   if (!areInputsValid()) {
     return false;
   }
+
+  if (expansions) {
+    expansions->clear();
+  } else {
+    // RCLCPP_WARN(_logger, "No expansions given, not recording");
+  }
+
+  RolloutT rollout = getRollout();
 
   // 0) Add starting point to the open set
   addNode(0.0, getStart());
@@ -317,7 +420,20 @@ bool AStarAlgorithm<NodeT>::createPath(
       neighbor = *neighbor_iterator;
 
       // 4.1) Compute the cost to go to this node
-      g_cost = current_node->getAccumulatedCost() + current_node->getTraversalCost(neighbor);
+      const float accumulated_cost = current_node->getAccumulatedCost();
+      const float traversal_cost = current_node->getTraversalCost(neighbor);
+      const float odom_cost = rollout.empty() ? 0.0 : getOdomCost(neighbor, rollout);
+      g_cost = accumulated_cost + traversal_cost + odom_cost;
+
+      if (expansions) {
+        const float heuristic_cost = getHeuristicCost(neighbor);
+        const uint index = neighbor->getIndex();
+        const auto coords = NodeT::getCoords(neighbor->getIndex(), getSizeX(), getSizeDim3());
+        (*expansions)["odom"][index] = std::make_pair(coords, odom_cost);
+        (*expansions)["trav"][index] = std::make_pair(coords, traversal_cost);
+        (*expansions)["heur"][index] = std::make_pair(coords, heuristic_cost);
+        (*expansions)["total"][index] = std::make_pair(coords, g_cost + heuristic_cost);
+      }
 
       // 4.2) If this is a lower cost than prior, we set this as the new cost and new approach
       if (g_cost < neighbor->getAccumulatedCost()) {
@@ -325,7 +441,8 @@ bool AStarAlgorithm<NodeT>::createPath(
         neighbor->parent = current_node;
 
         // 4.3) Add to queue with heuristic cost
-        addNode(g_cost + getHeuristicCost(neighbor), neighbor);
+        const float heuristic_cost = getHeuristicCost(neighbor);
+        addNode(g_cost + heuristic_cost, neighbor);
       }
     }
   }
