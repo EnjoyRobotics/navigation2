@@ -24,6 +24,7 @@
 #include "nav2_smac_planner/smoother.hpp"
 #include "nav2_smac_planner/utils.hpp"
 #include "nav2_smac_planner/costmap_downsampler.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav2_core/global_planner.hpp"
 #include "nav_msgs/msg/path.hpp"
@@ -34,6 +35,7 @@
 #include "nav2_util/node_utils.hpp"
 #include "tf2/utils.h"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
+#include "nav2_smac_planner/expansions_publisher.hpp"
 
 namespace nav2_smac_planner
 {
@@ -102,6 +104,7 @@ protected:
   GridCollisionChecker _collision_checker;
   std::unique_ptr<Smoother> _smoother;
   nav2_costmap_2d::Costmap2D * _costmap;
+  std::shared_ptr<nav2_costmap_2d::Costmap2DROS> _costmap_ros;
   std::unique_ptr<CostmapDownsampler> _costmap_downsampler;
   rclcpp::Clock::SharedPtr _clock;
   rclcpp::Logger _logger{rclcpp::get_logger("SmacPlanner2D")};
@@ -110,6 +113,7 @@ protected:
   int _downsampling_factor;
   bool _downsample_costmap;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr _raw_plan_publisher;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr _odometry_subscriber;
   double _max_planning_time;
   bool _allow_unknown;
   int _max_iterations;
@@ -121,6 +125,8 @@ protected:
   MotionModel _motion_model;
   std::mutex _mutex;
   rclcpp_lifecycle::LifecycleNode::WeakPtr _node;
+  bool _publish_expansions;
+  std::string _expansions_topic_base;
 
   // Dynamic parameters handler
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr _dyn_params_handler;

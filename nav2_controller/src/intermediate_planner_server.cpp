@@ -525,7 +525,7 @@ IntermediatePlannerServer::computePlan()
         float x = goal_pose.pose.position.x + tolerance_ * t * std::cos(angle);
         float y = goal_pose.pose.position.y + tolerance_ * t * std::sin(angle);
 
-        RCLCPP_INFO(
+        RCLCPP_DEBUG(
           logger_,
           "Trying point (%.2f, %.2f) within tolerance... (t = %.2f)",
           x, y, t);
@@ -554,15 +554,15 @@ IntermediatePlannerServer::computePlan()
             if (getPlanNoThrow(new_goal, path_out_local)) {
               break;
             } else {
-              RCLCPP_INFO(
+              RCLCPP_DEBUG(
                 logger_, "Failed to plan to point (%s)",
                 ex ? ex_str.c_str() : "unknown");
             }
           } else {
-            RCLCPP_INFO(logger_, "Point is in an obstacle");
+            RCLCPP_DEBUG(logger_, "Point is in an obstacle");
           }
         } else {
-          RCLCPP_INFO(logger_, "Point is outside the costmap");
+          RCLCPP_DEBUG(logger_, "Point is outside the costmap");
         }
       }
 

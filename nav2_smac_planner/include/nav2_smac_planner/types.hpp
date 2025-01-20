@@ -22,6 +22,7 @@
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "nav2_util/node_utils.hpp"
+#include "geometry_msgs/msg/pose2_d.hpp"
 
 namespace nav2_smac_planner
 {
@@ -51,6 +52,9 @@ struct SearchInfo
   bool allow_primitive_interpolation{false};
   bool downsample_obstacle_heuristic{true};
   bool use_quadratic_cost_penalty{false};
+  float odom_penalty{0.0};
+  float odom_rollout_time{0.5};
+  float odom_min_vel{0.0};
 };
 
 /**
@@ -190,6 +194,14 @@ struct MotionPrimitive
 
 typedef std::vector<MotionPrimitive> MotionPrimitives;
 typedef std::vector<MotionPrimitive *> MotionPrimitivePtrs;
+
+//! @brief Maps cost names to coordinate index to cost
+template<typename Coordinates>
+using ExpansionT = std::unordered_map<
+  std::string, std::unordered_map<uint, std::pair<Coordinates, float>>>;
+
+//! @brief A map of rollout values (maps distance from robot to angle, aka polar coords)
+using RolloutT = std::map<float, float>;
 
 }  // namespace nav2_smac_planner
 
