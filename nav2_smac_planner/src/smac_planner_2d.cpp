@@ -114,7 +114,6 @@ void SmacPlanner2D::configure(
 
   // TODO add parameters for custom critics
 
-
   _motion_model = MotionModel::TWOD;
 
   if (_max_on_approach_iterations <= 0) {

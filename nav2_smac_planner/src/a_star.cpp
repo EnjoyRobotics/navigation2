@@ -236,7 +236,6 @@ RolloutT AStarAlgorithm<NodeT>::getRollout() const
   static const float min_time_step = 0.2;  // for rollout
 
   // Calculate rollout
-
   if (!odometry) {
     // RCLCPP_ERROR(_logger, "No odometry received for rollout");
     return {};
@@ -261,10 +260,10 @@ RolloutT AStarAlgorithm<NodeT>::getRollout() const
   const float time_step = std::max<float>(
     _search_info.odom_rollout_time / n_points, min_time_step);
 
+  // TODO implement for non differential drive
   geometry_msgs::msg::Pose2D pose = start_pose;
   const float dx = odometry->twist.twist.linear.x * time_step;
   const float dtheta = odometry->twist.twist.angular.z * time_step;
-  // TODO implement for non differential drive
 
   for (size_t i = 0; i < n_points; ++i) {
     if (odometry->twist.twist.angular.z == 0.0) {
