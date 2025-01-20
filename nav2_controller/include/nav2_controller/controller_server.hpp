@@ -147,8 +147,11 @@ protected:
   /**
    * @brief Assigns path to controller
    * @param path Path received from action server
+   * @param goal Goal pose received from action server
    */
-  void setPlannerPath(const nav_msgs::msg::Path & path);
+  void setPlannerPath(
+    const nav_msgs::msg::Path & path,
+    const geometry_msgs::msg::PoseStamped & goal);
   /**
    * @brief Calculates velocity and publishes to "cmd_vel" topic
    */
