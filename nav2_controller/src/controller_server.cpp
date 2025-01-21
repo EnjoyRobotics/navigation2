@@ -391,7 +391,8 @@ void ControllerServer::computeControl()
       throw nav2_core::ControllerException("Failed to find goal checker name: " + gc_name);
     }
 
-    setPlannerPath(action_server_->get_current_goal()->path);
+    const auto && current_goal = action_server_->get_current_goal();
+    setPlannerPath(current_goal->path, current_goal->goal);
     progress_checker_->reset();
 
     last_valid_cmd_time_ = now();
@@ -495,7 +496,9 @@ void ControllerServer::computeControl()
   action_server_->succeeded_current();
 }
 
-void ControllerServer::setPlannerPath(const nav_msgs::msg::Path & path)
+void ControllerServer::setPlannerPath(
+  const nav_msgs::msg::Path & path,
+  const geometry_msgs::msg::PoseStamped & goal)
 {
   RCLCPP_DEBUG(
     get_logger(),
@@ -505,12 +508,11 @@ void ControllerServer::setPlannerPath(const nav_msgs::msg::Path & path)
   }
   controllers_[current_controller_]->setPlan(path);
 
-  end_pose_ = path.poses.back();
-  end_pose_.header.frame_id = path.header.frame_id;
+  end_pose_ = goal;
   goal_checkers_[current_goal_checker_]->reset();
 
   RCLCPP_DEBUG(
-    get_logger(), "Path end point is (%.2f, %.2f)",
+    get_logger(), "Goal is (%.2f, %.2f)",
     end_pose_.pose.position.x, end_pose_.pose.position.y);
 
   current_path_ = path;
@@ -615,7 +617,7 @@ void ControllerServer::updateGlobalPath()
       action_server_->terminate_current();
       return;
     }
-    setPlannerPath(goal->path);
+    setPlannerPath(goal->path, goal->goal);
   }
 }
 

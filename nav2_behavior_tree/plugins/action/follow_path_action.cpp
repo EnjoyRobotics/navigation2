@@ -33,6 +33,7 @@ void FollowPathAction::on_tick()
   getInput("path", goal_.path);
   getInput("controller_id", goal_.controller_id);
   getInput("goal_checker_id", goal_.goal_checker_id);
+  getInput("goal", goal_.goal);
 }
 
 BT::NodeStatus FollowPathAction::on_success()

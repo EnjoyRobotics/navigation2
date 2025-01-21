@@ -11,6 +11,7 @@ uint16 NO_VALID_CONTROL=106
 
 #goal definition
 nav_msgs/Path path
+geometry_msgs/PoseStamped goal
 string controller_id
 string goal_checker_id
 ---
