@@ -81,6 +81,7 @@ public:
     return providedBasicPorts(
       {
         BT::InputPort<nav_msgs::msg::Path>("path", "Path to follow"),
+        BT::InputPort<geometry_msgs::msg::PoseStamped>("goal", "Goal for goal_checker"),
         BT::InputPort<std::string>("controller_id", ""),
         BT::InputPort<std::string>("goal_checker_id", ""),
         BT::InputPort<std::string>("progress_checker_id", ""),
