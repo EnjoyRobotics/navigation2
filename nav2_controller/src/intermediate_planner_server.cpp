@@ -54,17 +54,8 @@ IntermediatePlannerServer::IntermediatePlannerServer(
   RCLCPP_INFO(logger_, "Creating");
 
   // Declare this node's parameters
-  node_->declare_parameter("tolerance", 0.25);
-  node_->declare_parameter("n_points_near_goal", 5);
-  node_->declare_parameter("points_per_rotation", 10);
   node_->declare_parameter("planner_plugins", default_ids_);
   node_->declare_parameter("expected_planner_frequency", 1.0);
-  node_->declare_parameter("publish_spiral_markers", false);
-
-  node_->get_parameter("tolerance", tolerance_);
-  node_->get_parameter("n_points_near_goal", n_points_near_goal_);
-  node_->get_parameter("points_per_rotation", points_per_rotation_);
-  node_->get_parameter("publish_spiral_markers", publish_spiral_markers_);
 
   node_->get_parameter("planner_plugins", planner_ids_);
   if (planner_ids_ == default_ids_) {
@@ -149,10 +140,6 @@ IntermediatePlannerServer::configure()
   plan_publisher_ = node_->create_publisher<nav_msgs::msg::Path>("intermediate_plan", 1);
   intermediate_goal_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
     "intermediate_goal", 1);
-  if (publish_spiral_markers_) {
-    spiral_markers_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(
-      "spiral_markers", 1);
-  }
 
   // Create the action server for path planning to a pose
   action_server_pose_ = std::make_unique<ActionServerToPose>(
@@ -174,9 +161,6 @@ IntermediatePlannerServer::activate()
   plan_publisher_->on_activate();
   intermediate_goal_publisher_->on_activate();
   action_server_pose_->activate();
-  if (publish_spiral_markers_) {
-    spiral_markers_pub_->on_activate();
-  }
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -204,9 +188,6 @@ IntermediatePlannerServer::deactivate()
   action_server_pose_->deactivate();
   plan_publisher_->on_deactivate();
   intermediate_goal_publisher_->on_deactivate();
-  if (publish_spiral_markers_) {
-    spiral_markers_pub_->on_deactivate();
-  }
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -227,7 +208,6 @@ IntermediatePlannerServer::cleanup()
   plan_publisher_.reset();
   intermediate_goal_publisher_.reset();
   tf_.reset();
-  spiral_markers_pub_.reset();
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -306,27 +286,12 @@ bool IntermediatePlannerServer::transformPosesToGlobalFrame(
 
 template<typename T>
 bool IntermediatePlannerServer::validatePath(
-  const geometry_msgs::msg::PoseStamped & goal,
+  const geometry_msgs::msg::PoseStamped & /*goal*/,
   const nav_msgs::msg::Path & path,
-  const std::string & planner_id)
+  const std::string & /*planner_id*/)
 {
-  (void)planner_id;
-
-  if (path.poses.size() <= 1) {
-    return false;
-  }
-
-  // Check if end pose is within costmap bounds
-  auto end_pose = path.poses.back().pose;
-  unsigned int mx, my;
-  if (!costmap_->worldToMap(end_pose.position.x, end_pose.position.y, mx, my)) {
-    return false;
-  }
-
-  // Check if end pose is within tolerance
-  if (nav2_util::geometry_utils::euclidean_distance(end_pose.position, goal.pose.position) >
-    tolerance_)
-  {
+  if (path.poses.empty()) {
+    RCLCPP_ERROR(logger_, "Path is empty.");
     return false;
   }
 
@@ -373,7 +338,6 @@ IntermediatePlannerServer::computePlan()
     if (!getStartPose<ActionToPose>(goal, start)) {
       throw nav2_core::PlannerTFError("Failed to get robot pose");
     }
-    start.header.frame_id = costmap_ros_->getGlobalFrameID();
 
     // Transform received path into costmap frame
     nav_msgs::msg::Path transformed_path;
@@ -460,118 +424,10 @@ IntermediatePlannerServer::computePlan()
     }
 
     RCLCPP_DEBUG(logger_, "Getting plan...");
-
-    std::exception_ptr ex;
-    std::string ex_str;
-    auto getPlanNoThrow = [this, &start, &planner_id, &ex, &ex_str](
-      const geometry_msgs::msg::PoseStamped & goal, nav_msgs::msg::Path & path) -> bool
-      {
-        bool found_path = false;
-        try {
-          path = getPlan(start, goal, planner_id);
-          found_path = validatePath<ActionToPose>(goal, path, planner_id);
-        } catch (...) {
-          ex = std::current_exception();
-          ex_str = ex ? ex.__cxa_exception_type()->name() : "unknown";
-        }
-        return found_path;
-      };
-
-    nav_msgs::msg::Path path_out_local;
-    if (!getPlanNoThrow(goal_pose, path_out_local)) {
-      // If couldn't find a path to exact goal, try to find a point within tolerance
-      // Search in a parametric spiral of equation
-      // (tol * t * cos(t * n * 2pi), tol * t * sin(t * n * 2pi))
-      // where n is the number of rotations the spiral makes.
-      // It's calculated as n_points_near_goal / points_per_rotation.
-      RCLCPP_INFO(
-        logger_,
-        "Failed to find path to exact goal (%s). Searching for a point within tolerance...",
-        ex ? ex_str.c_str() : "unknown");
-
-      visualization_msgs::msg::MarkerArray spiral_markers;
-      visualization_msgs::msg::Marker spiral_marker;
-      visualization_msgs::msg::Marker point_marker;
-
-      if (publish_spiral_markers_) {
-        spiral_marker.header.frame_id = costmap_ros_->getGlobalFrameID();
-        spiral_marker.header.stamp = node_->get_clock()->now();
-        spiral_marker.ns = "spiral";
-        spiral_marker.id = 0;
-        spiral_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
-        spiral_marker.action = visualization_msgs::msg::Marker::ADD;
-        spiral_marker.scale.x = 0.05;
-        spiral_marker.color.g = 1.0;
-        spiral_marker.color.a = 1.0;
-        spiral_marker.points.reserve(n_points_near_goal_);
-
-        point_marker.header.frame_id = costmap_ros_->getGlobalFrameID();
-        point_marker.header.stamp = node_->get_clock()->now();
-        point_marker.ns = "points";
-        point_marker.id = 0;
-        point_marker.type = visualization_msgs::msg::Marker::POINTS;
-        point_marker.action = visualization_msgs::msg::Marker::ADD;
-        point_marker.scale.x = 0.1;
-        point_marker.scale.y = 0.1;
-        point_marker.color.r = 1.0;
-        point_marker.color.a = 1.0;
-        point_marker.points.reserve(n_points_near_goal_);
-      }
-
-      float n_rot = static_cast<float>(n_points_near_goal_) / points_per_rotation_;
-      float dt = 1. / n_points_near_goal_;
-      for (float t = dt; t < 1; t += dt) {
-        float angle = t * n_rot * 2 * M_PI;
-        float x = goal_pose.pose.position.x + tolerance_ * t * std::cos(angle);
-        float y = goal_pose.pose.position.y + tolerance_ * t * std::sin(angle);
-
-        RCLCPP_DEBUG(
-          logger_,
-          "Trying point (%.2f, %.2f) within tolerance... (t = %.2f)",
-          x, y, t);
-
-        geometry_msgs::msg::Point point;
-        point.x = x;
-        point.y = y;
-
-        if (publish_spiral_markers_) {
-          point_marker.points.push_back(point);
-          spiral_marker.points.push_back(point);
-          spiral_markers.markers.push_back(spiral_marker);
-          spiral_markers.markers.push_back(point_marker);
-          spiral_markers_pub_->publish(spiral_markers);
-        }
-
-        unsigned int mx, my;
-        if (costmap_->worldToMap(x, y, mx, my)) {
-          auto cost = costmap_->getCost(mx, my);
-          if (cost != nav2_costmap_2d::LETHAL_OBSTACLE &&
-            cost != nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE)
-          {
-            geometry_msgs::msg::PoseStamped new_goal = goal_pose;
-            new_goal.pose.position.x = x;
-            new_goal.pose.position.y = y;
-            if (getPlanNoThrow(new_goal, path_out_local)) {
-              break;
-            } else {
-              RCLCPP_DEBUG(
-                logger_, "Failed to plan to point (%s)",
-                ex ? ex_str.c_str() : "unknown");
-            }
-          } else {
-            RCLCPP_DEBUG(logger_, "Point is in an obstacle");
-          }
-        } else {
-          RCLCPP_DEBUG(logger_, "Point is outside the costmap");
-        }
-      }
-
-      if (!validatePath<ActionToPose>(goal_pose, path_out_local, planner_id)) {
-        if (ex) {
-          std::rethrow_exception(ex);
-        }
-        throw nav2_core::NoValidPathCouldBeFound("Failed to find path to point within tolerance");
-      }
+    nav_msgs::msg::Path path_out_local = getPlan(start, goal_pose, planner_id);
+    bool found_path = validatePath<ActionToPose>(goal_pose, path_out_local, planner_id);
+    if (!found_path) {
+      throw nav2_core::NoValidPathCouldBeFound("Found path is invalid");
     }
 
     // Publish the plan for visualization purposes

@@ -260,14 +260,6 @@ protected:
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr
     intermediate_goal_publisher_;
-  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr
-    spiral_markers_pub_;
-  bool publish_spiral_markers_;
-
-  // Tolerance parameters
-  double tolerance_;
-  int n_points_near_goal_;
-  int points_per_rotation_;
 
   // Service to determine if the path is valid
   rclcpp::Service<nav2_msgs::srv::IsPathValid>::SharedPtr is_path_valid_service_;

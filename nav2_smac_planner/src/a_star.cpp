@@ -483,6 +483,11 @@ bool AStarAlgorithm<NodeT>::createPath(
   if (_best_heuristic_node.first < getToleranceHeuristic()) {
     // If we run out of search options, return the path that is closest, if within tolerance.
     return _graph.at(_best_heuristic_node.second).backtracePath(path);
+  } else {
+    RCLCPP_WARN(
+      rclcpp::get_logger("nav2_smac_planner"),
+      "A* failed to find a path, closest node was %f away from goal (tolerance: %f)",
+      _best_heuristic_node.first, getToleranceHeuristic());
   }
 
   return false;
