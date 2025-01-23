@@ -286,13 +286,10 @@ bool IntermediatePlannerServer::transformPosesToGlobalFrame(
 
 template<typename T>
 bool IntermediatePlannerServer::validatePath(
-  const geometry_msgs::msg::PoseStamped & goal,
+  const geometry_msgs::msg::PoseStamped & /*goal*/,
   const nav_msgs::msg::Path & path,
-  const std::string & planner_id)
+  const std::string & /*planner_id*/)
 {
-  (void)goal;
-  (void)planner_id;
-
   if (path.poses.empty()) {
     RCLCPP_ERROR(logger_, "Path is empty.");
     return false;
