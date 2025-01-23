@@ -210,7 +210,7 @@ protected:
 
   void exceptionWarning(
     const geometry_msgs::msg::PoseStamped & start,
-    const geometry_msgs::msg::PoseStamped & goal,
+    const std::shared_ptr<geometry_msgs::msg::PoseStamped> & goal_ptr,
     const std::string & planner_id,
     const std::exception & ex);
 
@@ -260,6 +260,8 @@ protected:
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr
     intermediate_goal_publisher_;
+
+  bool last_status_;  // Used to only print error when previous planning succeeded
 
   // Service to determine if the path is valid
   rclcpp::Service<nav2_msgs::srv::IsPathValid>::SharedPtr is_path_valid_service_;
