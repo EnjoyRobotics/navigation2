@@ -261,6 +261,8 @@ protected:
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr
     intermediate_goal_publisher_;
 
+  bool last_status_;  // Used to only print error when previous planning succeeded
+
   // Service to determine if the path is valid
   rclcpp::Service<nav2_msgs::srv::IsPathValid>::SharedPtr is_path_valid_service_;
 };
