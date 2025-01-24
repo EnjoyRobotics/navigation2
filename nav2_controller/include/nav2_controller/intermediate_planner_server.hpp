@@ -210,7 +210,7 @@ protected:
 
   void exceptionWarning(
     const geometry_msgs::msg::PoseStamped & start,
-    const std::shared_ptr<geometry_msgs::msg::PoseStamped> & goal_ptr,
+    const geometry_msgs::msg::PoseStamped & goal,
     const std::string & planner_id,
     const std::exception & ex);
 

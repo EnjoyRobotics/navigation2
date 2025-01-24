@@ -311,7 +311,7 @@ IntermediatePlannerServer::computePlan()
   auto result = std::make_shared<ActionToPose::Result>();
 
   geometry_msgs::msg::PoseStamped start;
-  std::shared_ptr<geometry_msgs::msg::PoseStamped> goal_ptr;
+  geometry_msgs::msg::PoseStamped goal_pose;
 
   try {
     if (isServerInactive(action_server_pose_) || isCancelRequested(action_server_pose_)) {
@@ -396,23 +396,22 @@ IntermediatePlannerServer::computePlan()
     }
 
     // Create goal pose and set orientation
-    goal_ptr = std::make_shared<geometry_msgs::msg::PoseStamped>(
-      transformed_path.poses[border_idx]);
+    goal_pose = transformed_path.poses[border_idx];
     if (border_idx + 1 < transformed_path.poses.size()) {
       geometry_msgs::msg::PoseStamped next_pose = transformed_path.poses[border_idx + 1];
-      float dx = next_pose.pose.position.x - goal_ptr->pose.position.x;
-      float dy = next_pose.pose.position.y - goal_ptr->pose.position.y;
+      float dx = next_pose.pose.position.x - goal_pose.pose.position.x;
+      float dy = next_pose.pose.position.y - goal_pose.pose.position.y;
       float yaw = std::atan2(dy, dx);
       tf2::Quaternion quat;
       quat.setRPY(0, 0, yaw);
-      goal_ptr->pose.orientation = tf2::toMsg(quat);
+      goal_pose.pose.orientation = tf2::toMsg(quat);
     } else {
-      goal_ptr->pose.orientation = transformed_path.poses.back().pose.orientation;
+      goal_pose.pose.orientation = transformed_path.poses.back().pose.orientation;
     }
-    intermediate_goal_publisher_->publish(*goal_ptr);
+    intermediate_goal_publisher_->publish(goal_pose);
 
-    float dx = goal_ptr->pose.position.x - start.pose.position.x;
-    float dy = goal_ptr->pose.position.y - start.pose.position.y;
+    float dx = goal_pose.pose.position.x - start.pose.position.x;
+    float dy = goal_pose.pose.position.y - start.pose.position.y;
     RCLCPP_DEBUG(logger_, "Goal dist from robot: %.2f, %.2f", dx, dy);
 
     if (planner_id.empty()) {
@@ -427,8 +426,8 @@ IntermediatePlannerServer::computePlan()
     }
 
     RCLCPP_DEBUG(logger_, "Getting plan...");
-    nav_msgs::msg::Path path_out_local = getPlan(start, *goal_ptr, planner_id);
-    bool found_path = validatePath<ActionToPose>(*goal_ptr, path_out_local, planner_id);
+    nav_msgs::msg::Path path_out_local = getPlan(start, goal_pose, planner_id);
+    bool found_path = validatePath<ActionToPose>(goal_pose, path_out_local, planner_id);
     if (!found_path) {
       throw nav2_core::NoValidPathCouldBeFound("Found path is invalid");
     }
@@ -451,31 +450,31 @@ IntermediatePlannerServer::computePlan()
     action_server_pose_->succeeded_current(result);
     last_status_ = true;
   } catch (nav2_core::InvalidPlanner & ex) {
-    exceptionWarning(start, goal_ptr, goal->planner_id, ex);
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
     result->error_code = ActionToPoseGoal::INVALID_PLANNER;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::StartOccupied & ex) {
-    exceptionWarning(start, goal_ptr, goal->planner_id, ex);
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
     result->error_code = ActionToPoseGoal::START_OCCUPIED;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::GoalOccupied & ex) {
-    exceptionWarning(start, goal_ptr, goal->planner_id, ex);
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
     result->error_code = ActionToPoseGoal::GOAL_OCCUPIED;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::NoValidPathCouldBeFound & ex) {
-    exceptionWarning(start, goal_ptr, goal->planner_id, ex);
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
     result->error_code = ActionToPoseGoal::NO_VALID_PATH;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::PlannerTimedOut & ex) {
-    exceptionWarning(start, goal_ptr, goal->planner_id, ex);
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
     result->error_code = ActionToPoseGoal::TIMEOUT;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::PlannerTFError & ex) {
-    exceptionWarning(start, goal_ptr, goal->planner_id, ex);
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
     result->error_code = ActionToPoseGoal::TF_ERROR;
     action_server_pose_->terminate_current(result);
   } catch (std::exception & ex) {
-    exceptionWarning(start, goal_ptr, goal->planner_id, ex);
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
     result->error_code = ActionToPoseGoal::UNKNOWN;
     action_server_pose_->terminate_current(result);
   }
@@ -604,7 +603,7 @@ IntermediatePlannerServer::dynamicParametersCallback(std::vector<rclcpp::Paramet
 
 void IntermediatePlannerServer::exceptionWarning(
   const geometry_msgs::msg::PoseStamped & start,
-  const std::shared_ptr<geometry_msgs::msg::PoseStamped> & goal_ptr,
+  const geometry_msgs::msg::PoseStamped & goal,
   const std::string & planner_id,
   const std::exception & ex)
 {
@@ -615,7 +614,7 @@ void IntermediatePlannerServer::exceptionWarning(
 
   std::stringstream ss;
   ss << std::fixed << std::setprecision(2);
-  if (!goal_ptr) {
+  if (goal.header.frame_id.empty()) {
     ss << "goal uninitialized";
   } else {
     ss << start.pose.position.x << ", " << start.pose.position.y;
