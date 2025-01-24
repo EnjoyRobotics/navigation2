@@ -49,7 +49,8 @@ IntermediatePlannerServer::IntermediatePlannerServer(
   gp_loader_("nav2_core", "nav2_core::GlobalPlanner"),
   default_ids_{"GridBased"},
   default_types_{"nav2_navfn_planner/NavfnPlanner"},
-  costmap_(nullptr)
+  costmap_(nullptr),
+  last_status_(true)
 {
   RCLCPP_INFO(logger_, "Creating");
 
@@ -310,6 +311,7 @@ IntermediatePlannerServer::computePlan()
   auto result = std::make_shared<ActionToPose::Result>();
 
   geometry_msgs::msg::PoseStamped start;
+  geometry_msgs::msg::PoseStamped goal_pose;
 
   try {
     if (isServerInactive(action_server_pose_) || isCancelRequested(action_server_pose_)) {
@@ -394,7 +396,7 @@ IntermediatePlannerServer::computePlan()
     }
 
     // Create goal pose and set orientation
-    geometry_msgs::msg::PoseStamped goal_pose = transformed_path.poses[border_idx];
+    goal_pose = transformed_path.poses[border_idx];
     if (border_idx + 1 < transformed_path.poses.size()) {
       geometry_msgs::msg::PoseStamped next_pose = transformed_path.poses[border_idx + 1];
       float dx = next_pose.pose.position.x - goal_pose.pose.position.x;
@@ -446,59 +448,34 @@ IntermediatePlannerServer::computePlan()
         1 / max_planner_duration_, 1 / cycle_duration.seconds());
     }
     action_server_pose_->succeeded_current(result);
+    last_status_ = true;
   } catch (nav2_core::InvalidPlanner & ex) {
-    result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "InvalidPlanner exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::INVALID_PLANNER;
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
+    result->error_code = ActionToPoseGoal::INVALID_PLANNER;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::StartOccupied & ex) {
-    result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "StartOccupied exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::START_OCCUPIED;
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
+    result->error_code = ActionToPoseGoal::START_OCCUPIED;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::GoalOccupied & ex) {
-    result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "GoalOccupied exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::GOAL_OCCUPIED;
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
+    result->error_code = ActionToPoseGoal::GOAL_OCCUPIED;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::NoValidPathCouldBeFound & ex) {
-    result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "NoValidPathCouldBeFound exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::NO_VALID_PATH;
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
+    result->error_code = ActionToPoseGoal::NO_VALID_PATH;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::PlannerTimedOut & ex) {
-    result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "PlannerTimedOut exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::TIMEOUT;
-    action_server_pose_->terminate_current(result);
-  } catch (nav2_core::StartOutsideMapBounds & ex) {
-    result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "StartOutsideMapBounds exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::START_OUTSIDE_MAP;
-    action_server_pose_->terminate_current(result);
-  } catch (nav2_core::GoalOutsideMapBounds & ex) {
-    result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "GoalOutsideMapBounds exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::GOAL_OUTSIDE_MAP;
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
+    result->error_code = ActionToPoseGoal::TIMEOUT;
     action_server_pose_->terminate_current(result);
   } catch (nav2_core::PlannerTFError & ex) {
-    result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "PlannerTFError exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::TF_ERROR;
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
+    result->error_code = ActionToPoseGoal::TF_ERROR;
     action_server_pose_->terminate_current(result);
   } catch (std::exception & ex) {
+    exceptionWarning(start, goal_pose, goal->planner_id, ex);
     result->error_code = ActionToPoseGoal::UNKNOWN;
-    RCLCPP_ERROR(logger_, "Exception: %s", ex.what());
-    // exceptionWarning(start, goal->goal, goal->planner_id, ex);
-    // result->error_code = ActionToPoseGoal::UNKNOWN;
     action_server_pose_->terminate_current(result);
   }
 }
@@ -630,12 +607,22 @@ void IntermediatePlannerServer::exceptionWarning(
   const std::string & planner_id,
   const std::exception & ex)
 {
+  if (!last_status_) {
+    return;
+  }
+  last_status_ = false;
+
+  std::stringstream ss;
+  ss << std::fixed << std::setprecision(2);
+  if (goal.header.frame_id.empty()) {
+    ss << "goal uninitialized";
+  } else {
+    ss << start.pose.position.x << ", " << start.pose.position.y;
+  }
+
   RCLCPP_WARN(
-    logger_, "%s plugin failed to plan from (%.2f, %.2f) to (%0.2f, %.2f): \"%s\"",
-    planner_id.c_str(),
-    start.pose.position.x, start.pose.position.y,
-    goal.pose.position.x, goal.pose.position.y,
-    ex.what());
+    logger_, "%s plugin failed to plan from (%.2f, %.2f) to (%s): \"%s\"",
+    planner_id.c_str(), start.pose.position.x, start.pose.position.y, ss.str().c_str(), ex.what());
 }
 
 }  // namespace nav2_controller
