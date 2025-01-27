@@ -240,7 +240,10 @@ geometry_msgs::msg::PoseStamped RotationShimController::getSampledPathPt()
     dy = current_path_.poses[i].pose.position.y - start.position.y;
     if (hypot(dx, dy) >= forward_sampling_distance_) {
       current_path_.poses[i].header.frame_id = current_path_.header.frame_id;
-      current_path_.poses[i].header.stamp = rclcpp::Time(0); // Latest available transform
+      // TODO: This is a hack to use the latest transform, instead of the clock time
+      // When we use the clock time, we have to wait for the transform to be available
+      // which depending on the odom frequency can be a problem
+      current_path_.poses[i].header.stamp = rclcpp::Time(0);
       return current_path_.poses[i];
     }
   }
@@ -259,7 +262,10 @@ geometry_msgs::msg::PoseStamped RotationShimController::getSampledPathGoal()
 
   auto goal = current_path_.poses.back();
   goal.header.frame_id = current_path_.header.frame_id;
-  goal.header.stamp = rclcpp::Time(0);  // Latest available transform
+  // TODO: This is a hack to use the latest transform, instead of the clock time
+  // When we use the clock time, we have to wait for the transform to be available
+  // which depending on the odom frequency can be a problem
+  goal.header.stamp = rclcpp::Time(0);
   return goal;
 }
 
