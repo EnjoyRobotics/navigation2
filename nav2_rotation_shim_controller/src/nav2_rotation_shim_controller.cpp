@@ -240,7 +240,7 @@ geometry_msgs::msg::PoseStamped RotationShimController::getSampledPathPt()
     dy = current_path_.poses[i].pose.position.y - start.position.y;
     if (hypot(dx, dy) >= forward_sampling_distance_) {
       current_path_.poses[i].header.frame_id = current_path_.header.frame_id;
-      current_path_.poses[i].header.stamp = clock_->now();  // Get current time transformation
+      current_path_.poses[i].header.stamp = rclcpp::Time(0); // Latest available transform
       return current_path_.poses[i];
     }
   }
@@ -259,7 +259,7 @@ geometry_msgs::msg::PoseStamped RotationShimController::getSampledPathGoal()
 
   auto goal = current_path_.poses.back();
   goal.header.frame_id = current_path_.header.frame_id;
-  goal.header.stamp = clock_->now();
+  goal.header.stamp = rclcpp::Time(0);  // Latest available transform
   return goal;
 }
 
