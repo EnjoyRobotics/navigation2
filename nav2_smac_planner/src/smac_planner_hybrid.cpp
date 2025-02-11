@@ -297,7 +297,7 @@ nav_msgs::msg::Path SmacPlannerHybrid::createPlan(
             std::to_string(start.pose.position.y) + ") was outside bounds");
   }
 
-  double orientation_bin = tf2::getYaw(start.pose.orientation) / _angle_bin_size;
+  double orientation_bin = std::round(tf2::getYaw(start.pose.orientation) / _angle_bin_size);
   while (orientation_bin < 0.0) {
     orientation_bin += static_cast<float>(_angle_quantizations);
   }
@@ -305,8 +305,7 @@ nav_msgs::msg::Path SmacPlannerHybrid::createPlan(
   if (orientation_bin >= static_cast<float>(_angle_quantizations)) {
     orientation_bin -= static_cast<float>(_angle_quantizations);
   }
-  unsigned int orientation_bin_id = static_cast<unsigned int>(floor(orientation_bin));
-  _a_star->setStart(mx, my, orientation_bin_id);
+  _a_star->setStart(mx, my, static_cast<unsigned int>(orientation_bin));
 
   // Set goal point, in A* bin search coordinates
   if (!costmap->worldToMap(goal.pose.position.x, goal.pose.position.y, mx, my)) {
@@ -314,7 +313,7 @@ nav_msgs::msg::Path SmacPlannerHybrid::createPlan(
             "Goal Coordinates of(" + std::to_string(goal.pose.position.x) + ", " +
             std::to_string(goal.pose.position.y) + ") was outside bounds");
   }
-  orientation_bin = tf2::getYaw(goal.pose.orientation) / _angle_bin_size;
+  orientation_bin = std::round(tf2::getYaw(goal.pose.orientation) / _angle_bin_size);
   while (orientation_bin < 0.0) {
     orientation_bin += static_cast<float>(_angle_quantizations);
   }
@@ -322,8 +321,7 @@ nav_msgs::msg::Path SmacPlannerHybrid::createPlan(
   if (orientation_bin >= static_cast<float>(_angle_quantizations)) {
     orientation_bin -= static_cast<float>(_angle_quantizations);
   }
-  orientation_bin_id = static_cast<unsigned int>(floor(orientation_bin));
-  _a_star->setGoal(mx, my, orientation_bin_id);
+  _a_star->setGoal(mx, my, static_cast<unsigned int>(orientation_bin));
 
   // Setup message
   nav_msgs::msg::Path plan;
