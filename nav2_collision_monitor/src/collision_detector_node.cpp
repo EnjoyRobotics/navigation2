@@ -322,14 +322,19 @@ void CollisionDetector::process()
   std::unique_ptr<nav2_msgs::msg::CollisionDetectorState> state_msg =
     std::make_unique<nav2_msgs::msg::CollisionDetectorState>();
 
+  // Get clock for throttled logging
+  rclcpp::Clock::SharedPtr clk = get_clock();
+
   // Fill collision_points array from different data sources
   for (std::shared_ptr<Source> source : sources_) {
     if (source->getEnabled()) {
       if (!source->getData(curr_time, collision_points) &&
         source->getSourceTimeout().seconds() != 0.0)
       {
-        RCLCPP_WARN(
+        RCLCPP_WARN_THROTTLE(
           get_logger(),
+          *clk,
+          5000,  // 5 seconds
           "Invalid source %s detected."
           " Either due to data not published yet, or to lack of new data received within the"
           " sensor timeout, or if impossible to transform data to base frame",
