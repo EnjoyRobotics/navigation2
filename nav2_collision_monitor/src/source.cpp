@@ -82,12 +82,20 @@ bool Source::sourceValid(
   const rclcpp::Time & source_time,
   const rclcpp::Time & curr_time) const
 {
+  // Get clock for throttled logging
+  auto node = node_.lock();
+  rclcpp::Clock::SharedPtr clk = node->get_clock();
+
   // Source is considered as not valid, if latest received data timestamp is earlier
   // than current time by source_timeout_ interval
   const rclcpp::Duration dt = curr_time - source_time;
   if (source_timeout_.seconds() != 0.0 && dt > source_timeout_) {
-    RCLCPP_WARN(
+    // Log calls are being ignored if the last logged message
+    // is not longer ago than the specified duration
+    RCLCPP_WARN_THROTTLE(
       logger_,
+      *clk,
+      5000,  // 5 seconds
       "[%s]: Latest source and current collision monitor node timestamps differ on %f seconds. "
       "Ignoring the source.",
       source_name_.c_str(), dt.seconds());
