@@ -125,7 +125,7 @@ IntermediatePlannerServer::configure()
     logger_,
     "Planner Server has %s planners available.", planner_ids_concat_.c_str());
 
-  double expected_planner_frequency;
+  double expected_planner_frequency = 0.0;
   node_->get_parameter("expected_planner_frequency", expected_planner_frequency);
   if (expected_planner_frequency > 0) {
     max_planner_duration_ = 1 / expected_planner_frequency;
@@ -491,15 +491,19 @@ IntermediatePlannerServer::getPlan(
     "(%.2f, %.2f).", start.pose.position.x, start.pose.position.y,
     goal.pose.position.x, goal.pose.position.y);
 
+  auto cancel_checker = [this]() {
+      return action_server_pose_->is_cancel_requested();
+    };
+
   if (planners_.find(planner_id) != planners_.end()) {
-    return planners_[planner_id]->createPlan(start, goal);
+    return planners_[planner_id]->createPlan(start, goal, cancel_checker);
   } else {
     if (planners_.size() == 1 && planner_id.empty()) {
       RCLCPP_WARN_ONCE(
         logger_, "No planners specified in action call. "
         "Server will use only plugin %s in server."
         " This warning will appear once.", planner_ids_concat_.c_str());
-      return planners_[planners_.begin()->first]->createPlan(start, goal);
+      return planners_[planners_.begin()->first]->createPlan(start, goal, cancel_checker);
     } else {
       RCLCPP_ERROR(
         logger_, "planner %s is not a valid planner. "

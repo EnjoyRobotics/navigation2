@@ -393,7 +393,7 @@ protected:
       [this](typename rclcpp_action::ClientGoalHandle<ActionT>::SharedPtr,
       const std::shared_ptr<const typename ActionT::Feedback> feedback) {
         setOutput("feedback", feedback);
-        feedback_ = feedback;
+        feedback_ = std::make_shared<typename ActionT::Feedback>(*feedback);
         emitWakeUpSignal();
       };
 
