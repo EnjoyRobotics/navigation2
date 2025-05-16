@@ -371,13 +371,24 @@ IntermediatePlannerServer::computePlan()
       logger_, "Closest pose to start is at index %zu with distance %.2f",
       closest_idx, min_dist);
 
+    // Check if the closest pose is outside the costmap
+    {
+      float mx, my;
+      if (!costmap_->worldToMapContinuous(
+          transformed_path.poses[closest_idx].pose.position.x,
+          transformed_path.poses[closest_idx].pose.position.y, mx, my))
+      {
+        throw nav2_core::PlannerTFError("Closest pose is outside the costmap");
+      }
+    }
+
     // Find index (goal) where the path leaves the local path
     size_t border_idx = closest_idx;
     for (size_t curr_idx = closest_idx; curr_idx < transformed_path.poses.size(); ++curr_idx) {
-      unsigned int mx, my;
+      float mx, my;
 
       // Returns false if pose is outside the costmap
-      if (!costmap_->worldToMap(
+      if (!costmap_->worldToMapContinuous(
           transformed_path.poses[curr_idx].pose.position.x,
           transformed_path.poses[curr_idx].pose.position.y, mx, my))
       {
@@ -621,7 +632,7 @@ void IntermediatePlannerServer::exceptionWarning(
   if (goal.header.frame_id.empty()) {
     ss << "goal uninitialized";
   } else {
-    ss << start.pose.position.x << ", " << start.pose.position.y;
+    ss << goal.pose.position.x << ", " << goal.pose.position.y;
   }
 
   RCLCPP_WARN(
