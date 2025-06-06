@@ -36,6 +36,10 @@ void SimpleChargingDock::configure(
   nav2_util::declare_parameter_if_not_declared(
     node_, name + ".use_battery_status", rclcpp::ParameterValue(true));
 
+  // Use is_docked topic (disables all other checks)
+  nav2_util::declare_parameter_if_not_declared(
+    node_, name + ".use_is_docked_topic", rclcpp::ParameterValue(false));
+
   // Parameters for optional external detection of dock pose
   nav2_util::declare_parameter_if_not_declared(
     node_, name + ".use_external_detection_pose", rclcpp::ParameterValue(false));
@@ -79,6 +83,7 @@ void SimpleChargingDock::configure(
     node_, name + ".staging_yaw_offset", rclcpp::ParameterValue(0.0));
 
   node_->get_parameter(name + ".use_battery_status", use_battery_status_);
+  node_->get_parameter(name + ".use_is_docked_topic", use_is_docked_topic_);
   node_->get_parameter(name + ".use_external_detection_pose", use_external_detection_pose_);
   node_->get_parameter(name + ".external_detection_timeout", external_detection_timeout_);
   node_->get_parameter(
@@ -108,6 +113,16 @@ void SimpleChargingDock::configure(
       "battery_state", 1,
       [this](const sensor_msgs::msg::BatteryState::SharedPtr state) {
         is_charging_ = state->current > charging_threshold_;
+      });
+  }
+
+  if (use_is_docked_topic_) {
+    // If using is_docked topic, we don't use any other checks
+    is_docked_from_topic_ = false;
+    is_docked_sub_ = node_->create_subscription<std_msgs::msg::Bool>(
+      "is_docked", 1,
+      [this](const std_msgs::msg::Bool::SharedPtr msg) {
+        is_docked_from_topic_ = msg->data;
       });
   }
 
@@ -238,6 +253,11 @@ bool SimpleChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, 
 
 bool SimpleChargingDock::isDocked()
 {
+  if (use_is_docked_topic_) {
+    // If using is_docked topic, we don't use any other checks
+    return is_docked_from_topic_;
+  }
+
   if (joint_state_sub_) {
     // Using stall detection
     return is_stalled_;
@@ -268,6 +288,10 @@ bool SimpleChargingDock::isDocked()
 
 bool SimpleChargingDock::isCharging()
 {
+  if (use_is_docked_topic_) {
+    return is_docked_from_topic_;
+  }
+
   return use_battery_status_ ? is_charging_ : isDocked();
 }
 
