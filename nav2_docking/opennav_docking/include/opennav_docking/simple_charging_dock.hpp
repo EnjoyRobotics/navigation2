@@ -19,6 +19,7 @@
 #include <memory>
 #include <vector>
 
+#include "std_msgs/msg/bool.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
@@ -108,6 +109,7 @@ protected:
 
   // Optionally subscribe to a detected dock pose topic
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr dock_pose_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr is_docked_sub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr dock_pose_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr filtered_dock_pose_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr staging_pose_pub_;
@@ -121,6 +123,7 @@ protected:
   rclcpp::Subscription<sensor_msgs::msg::BatteryState>::SharedPtr battery_sub_;
   bool is_charging_;
   bool use_battery_status_;
+  bool use_is_docked_topic_, is_docked_from_topic_;
 
   // Optionally subscribe to joint state message, used to determine if stalled
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
