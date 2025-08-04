@@ -9,3 +9,8 @@ ament_target_dependencies(test_control_pipeline_sequence ${dependencies})
 ament_add_gtest(test_control_round_robin_node test_round_robin_node.cpp)
 target_link_libraries(test_control_round_robin_node nav2_round_robin_node_bt_node)
 ament_target_dependencies(test_control_round_robin_node ${dependencies})
+
+plugin_add_test(test_control_pause_resume_controller
+  test_pause_resume_controller.cpp nav2_pause_resume_controller_bt_node)
+
+plugin_add_test(test_persistent_sequence test_persistent_sequence.cpp nav2_persistent_sequence_bt_node)
