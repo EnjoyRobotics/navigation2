@@ -283,9 +283,16 @@ Costmap2DROS::on_activate(const rclcpp_lifecycle::State & /*state*/)
 
   RCLCPP_INFO(get_logger(), "Checking transform");
   rclcpp::Rate r(2);
-  const auto initial_transform_timeout = rclcpp::Duration::from_seconds(
+
+  // Handle infinite timeout when initial_transform_timeout_ is -1
+  const bool wait_indefinitely = (initial_transform_timeout_ < 0.0);
+  rclcpp::Time initial_transform_timeout_point;
+  if (!wait_indefinitely) {
+    const auto initial_transform_timeout = rclcpp::Duration::from_seconds(
     initial_transform_timeout_);
-  const auto initial_transform_timeout_point = now() + initial_transform_timeout;
+    initial_transform_timeout_point = now() + initial_transform_timeout;
+  }
+
   while (rclcpp::ok() &&
     !tf_buffer_->canTransform(
       global_frame_, robot_base_frame_, tf2::TimePointZero, &tf_error))
@@ -296,7 +303,7 @@ Costmap2DROS::on_activate(const rclcpp_lifecycle::State & /*state*/)
       robot_base_frame_.c_str(), global_frame_.c_str(), tf_error.c_str());
 
     // Check timeout
-    if (now() > initial_transform_timeout_point) {
+    if (!wait_indefinitely && now() > initial_transform_timeout_point) {
       RCLCPP_ERROR(
         get_logger(),
         "Failed to activate %s because "
