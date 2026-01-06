@@ -445,6 +445,7 @@ IntermediatePlannerServer::computePlan()
 
     // Publish the plan for visualization purposes
     result->local_path = path_out_local;
+    result->local_goal = result->local_path.poses.back();
     publishPlan(result->local_path);
 
     auto cycle_duration = steady_clock_.now() - start_time;
