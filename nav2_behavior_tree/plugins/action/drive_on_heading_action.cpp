@@ -47,7 +47,7 @@ void DriveOnHeadingAction::initialize()
 
 void DriveOnHeadingAction::on_tick()
 {
-  if (status() == BT::NodeStatus::IDLE) {
+  if (!BT::isStatusActive(status())) {
     initialize();
   }
 }
