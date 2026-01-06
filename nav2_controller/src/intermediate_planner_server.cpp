@@ -139,6 +139,8 @@ IntermediatePlannerServer::configure()
 
   // Initialize pubs & subs
   plan_publisher_ = node_->create_publisher<nav_msgs::msg::Path>("intermediate_plan", 1);
+  local_goal_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
+    "local_goal", 1);
   intermediate_goal_publisher_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
     "intermediate_goal", 1);
 
@@ -160,6 +162,7 @@ IntermediatePlannerServer::activate()
   RCLCPP_INFO(logger_, "Activating");
 
   plan_publisher_->on_activate();
+  local_goal_publisher_->on_activate();
   intermediate_goal_publisher_->on_activate();
   action_server_pose_->activate();
 
@@ -188,6 +191,7 @@ IntermediatePlannerServer::deactivate()
 
   action_server_pose_->deactivate();
   plan_publisher_->on_deactivate();
+  local_goal_publisher_->on_deactivate();
   intermediate_goal_publisher_->on_deactivate();
 
   PlannerMap::iterator it;
@@ -207,6 +211,7 @@ IntermediatePlannerServer::cleanup()
 
   action_server_pose_.reset();
   plan_publisher_.reset();
+  local_goal_publisher_.reset();
   intermediate_goal_publisher_.reset();
   tf_.reset();
 
@@ -447,6 +452,7 @@ IntermediatePlannerServer::computePlan()
     result->local_path = path_out_local;
     result->local_goal = result->local_path.poses.back();
     publishPlan(result->local_path);
+    publishLocalGoal(result->local_goal);
 
     auto cycle_duration = steady_clock_.now() - start_time;
     RCLCPP_DEBUG(
@@ -534,6 +540,18 @@ IntermediatePlannerServer::publishPlan(const nav_msgs::msg::Path & path)
   auto msg = std::make_unique<nav_msgs::msg::Path>(path);
   if (plan_publisher_->is_activated() && plan_publisher_->get_subscription_count() > 0) {
     plan_publisher_->publish(std::move(msg));
+  }
+}
+
+void
+IntermediatePlannerServer::publishLocalGoal(
+  const geometry_msgs::msg::PoseStamped & local_goal)
+{
+  auto msg = std::make_unique<geometry_msgs::msg::PoseStamped>(local_goal);
+  if (local_goal_publisher_->is_activated() &&
+    local_goal_publisher_->get_subscription_count() > 0)
+  {
+    local_goal_publisher_->publish(std::move(msg));
   }
 }
 

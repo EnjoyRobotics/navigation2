@@ -208,6 +208,12 @@ protected:
    */
   void publishPlan(const nav_msgs::msg::Path & path);
 
+  /**
+   * @brief Publish local goal for visualization purposes
+   * @param goal Reference to local goal
+   */
+  void publishLocalGoal(const geometry_msgs::msg::PoseStamped & goal);
+
   void exceptionWarning(
     const geometry_msgs::msg::PoseStamped & start,
     const geometry_msgs::msg::PoseStamped & goal,
@@ -258,6 +264,8 @@ protected:
 
   // Publishers for the path
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr plan_publisher_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr
+    local_goal_publisher_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr
     intermediate_goal_publisher_;
 
