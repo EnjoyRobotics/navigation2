@@ -265,7 +265,7 @@ public:
 
 TEST(OptimizerTests, BasicInitializedFunctions)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
   node->declare_parameter("mppic.time_steps", rclcpp::ParameterValue(50));
@@ -313,7 +313,7 @@ TEST(OptimizerTests, BasicInitializedFunctions)
 
 TEST(OptimizerTests, TestOptimizerMotionModels)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   // Declare plugin types for the motion model tests
@@ -355,7 +355,7 @@ TEST(OptimizerTests, TestOptimizerMotionModels)
 
 TEST(OptimizerTests, setOffsetTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("mppic.model_dt", rclcpp::ParameterValue(0.1));
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
@@ -383,7 +383,7 @@ TEST(OptimizerTests, setOffsetTests)
 
 TEST(OptimizerTests, resetTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -406,7 +406,7 @@ TEST(OptimizerTests, resetTests)
 
 TEST(OptimizerTests, FallbackTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -434,7 +434,7 @@ TEST(OptimizerTests, FallbackTests)
 
 TEST(OptimizerTests, PrepareTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -466,7 +466,7 @@ TEST(OptimizerTests, PrepareTests)
 
 TEST(OptimizerTests, shiftControlSequenceTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -515,7 +515,7 @@ TEST(OptimizerTests, shiftControlSequenceTests)
 
 TEST(OptimizerTests, SpeedLimitTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -556,7 +556,7 @@ TEST(OptimizerTests, SpeedLimitTests)
 
 TEST(OptimizerTests, applyControlSequenceConstraintsTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -629,7 +629,7 @@ TEST(OptimizerTests, applyControlSequenceConstraintsTests)
 
 TEST(OptimizerTests, updateStateVelocitiesTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -665,7 +665,7 @@ TEST(OptimizerTests, updateStateVelocitiesTests)
 
 TEST(OptimizerTests, getControlFromSequenceAsTwistTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -709,7 +709,7 @@ TEST(OptimizerTests, getControlFromSequenceAsTwistTests)
 
 TEST(OptimizerTests, integrateStateVelocitiesTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -785,7 +785,7 @@ TEST(OptimizerTests, TestGetters)
   EXPECT_EQ(control_seq.vx(0), 342.0);
   EXPECT_EQ(control_seq.vx.rows(), 30);
 
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter(
     "mppic.diff_drive.plugin", rclcpp::ParameterValue("mppi::DiffDriveMotionModel"));
@@ -802,7 +802,7 @@ TEST(OptimizerTests, TestGetters)
 
 TEST(OptimizerTests, Omni_openLoopMppiTest)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -880,7 +880,7 @@ TEST(OptimizerTests, SpeedLimitDynamicParameterGuard)
 {
   // This test verifies that kinematic parameters (vx_max, etc.) are rejected
   // when a speed limit is active, but allowed when no speed limit is active.
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(30.0));
   node->declare_parameter("mppic.batch_size", rclcpp::ParameterValue(1000));
@@ -942,7 +942,7 @@ TEST(OptimizerTests, SpeedLimitDynamicParameterGuard)
 
 TEST(OptimizerTests, InterIterationConstraintsTests)
 {
-  auto node = std::make_shared<nav2::LifecycleNode>("my_node");
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("my_node");
   OptimizerTester optimizer_tester;
   node->declare_parameter("controller_frequency", rclcpp::ParameterValue(20.0));
   node->declare_parameter("mppic.model_dt", rclcpp::ParameterValue(0.05));

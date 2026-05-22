@@ -25,13 +25,12 @@
 
 #include "nav2_core/controller_exceptions.hpp"
 #include "nav2_costmap_2d/costmap_filters/filter_values.hpp"
-#include "nav2_ros_common/node_utils.hpp"
 
 namespace mppi
 {
 
 void Optimizer::initialize(
-  nav2::LifecycleNode::WeakPtr parent, const std::string & name,
+  rclcpp_lifecycle::LifecycleNode::WeakPtr parent, const std::string & name,
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros,
   std::shared_ptr<tf2_ros::Buffer> tf_buffer,
   ParametersHandler * param_handler)
@@ -52,10 +51,10 @@ void Optimizer::initialize(
   noise_generator_.initialize(settings_, isHolonomic(), name_, parameters_handler_);
 
   // This may throw an exception if not valid and fail initialization
-  nav2::declare_parameter_if_not_declared(
+  nav2_util::declare_parameter_if_not_declared(
     node, name_ + ".TrajectoryValidator.plugin",
     rclcpp::ParameterValue("mppi::DefaultOptimalTrajectoryValidator"));
-  std::string validator_plugin_type = nav2::get_plugin_type_param(
+  std::string validator_plugin_type =  nav2_util::get_plugin_type_param(
     node, name_ + ".TrajectoryValidator");
   validator_loader_ = std::make_unique<pluginlib::ClassLoader<OptimalTrajectoryValidator>>(
     "nav2_mppi_controller", "mppi::OptimalTrajectoryValidator");
@@ -662,7 +661,7 @@ void Optimizer::setMotionModel(const std::string & motion_model_name)
     "nav2_mppi_controller", "mppi::MotionModel");
 
   try {
-    plugin_type = nav2::get_plugin_type_param(node, plugin_ns);
+    plugin_type = nav2_util::get_plugin_type_param(node, plugin_ns);
     motion_model_ = motion_model_loader_->createSharedInstance(plugin_type);
     motion_model_->initialize(parameters_handler_, plugin_ns);
     motion_model_->setConstraints(settings_.constraints, settings_.model_dt);

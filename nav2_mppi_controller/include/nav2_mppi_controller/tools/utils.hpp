@@ -38,7 +38,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "nav2_ros_common/node_utils.hpp"
 #include "nav2_core/goal_checker.hpp"
 
 #include "nav2_mppi_controller/models/optimizer_settings.hpp"

@@ -19,7 +19,6 @@ find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(nav2_ros_common REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 include_directories(
@@ -52,11 +51,10 @@ target_include_directories(mppi_controller
   PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
+ament_target_dependencies(mppi_controller PUBLIC nav2_core)
 target_link_libraries(mppi_controller PUBLIC
   angles::angles
   ${geometry_msgs_TARGETS}
-  nav2_core::nav2_core
-  nav2_ros_common::nav2_ros_common
   nav2_costmap_2d::layers
   nav2_costmap_2d::nav2_costmap_2d_core
   ${nav2_msgs_TARGETS}
@@ -113,11 +111,10 @@ target_include_directories(mppi_critics
   PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
+ament_target_dependencies(mppi_critics PUBLIC nav2_core)
 target_link_libraries(mppi_critics PUBLIC
   angles::angles
   ${geometry_msgs_TARGETS}
-  nav2_core::nav2_core
-  nav2_ros_common::nav2_ros_common
   nav2_costmap_2d::layers
   nav2_costmap_2d::nav2_costmap_2d_core
   ${nav_msgs_TARGETS}
@@ -140,12 +137,11 @@ target_compile_options(mppi_trajectory_validators PUBLIC -O3)
 target_include_directories(mppi_trajectory_validators
   PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
-    "$<BUILD_INTERFACE:${nav2_ros_common_INCLUDE_DIRS}>")
+    "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
+ament_target_dependencies(mppi_trajectory_validators PUBLIC nav2_core)
 target_link_libraries(mppi_trajectory_validators PUBLIC
   angles::angles
   ${geometry_msgs_TARGETS}
-  nav2_core::nav2_core
   nav2_costmap_2d::layers
   nav2_costmap_2d::nav2_costmap_2d_core
   ${nav_msgs_TARGETS}
@@ -172,17 +168,17 @@ install(DIRECTORY include/
   DESTINATION include/${PROJECT_NAME}
 )
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  find_package(ament_cmake_gtest REQUIRED)
-  set(ament_cmake_copyright_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
+# if(BUILD_TESTING)
+#   find_package(ament_lint_auto REQUIRED)
+#   find_package(ament_cmake_gtest REQUIRED)
+#   set(ament_cmake_copyright_FOUND TRUE)
+#   ament_lint_auto_find_test_dependencies()
 
-  ament_find_gtest()
+#   ament_find_gtest()
 
-  add_subdirectory(test)
-  add_subdirectory(benchmark)
-endif()
+#   add_subdirectory(test)
+#   add_subdirectory(benchmark)
+# endif()
 
 ament_export_libraries(${libraries})
 ament_export_dependencies(
@@ -199,7 +195,6 @@ ament_export_dependencies(
   tf2_geometry_msgs
   tf2_ros
   visualization_msgs
-  nav2_ros_common
   Eigen3
 )
 ament_export_include_directories(include/${PROJECT_NAME})

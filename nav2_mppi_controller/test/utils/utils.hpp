@@ -47,7 +47,7 @@ void waitSome(const std::chrono::nanoseconds & duration, TNode & node)
 void sendTf(
   std::string_view source, std::string_view dest,
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster,
-  nav2::LifecycleNode::SharedPtr node, size_t n)
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node, size_t n)
 {
   while (--n != 0u) {
     auto t = geometry_msgs::msg::TransformStamped();

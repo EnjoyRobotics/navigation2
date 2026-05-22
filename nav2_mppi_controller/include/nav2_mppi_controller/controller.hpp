@@ -22,7 +22,7 @@
 #include "nav2_mppi_controller/tools/trajectory_visualizer.hpp"
 #include "nav2_mppi_controller/models/constraints.hpp"
 #include "nav2_mppi_controller/tools/utils.hpp"
-#include "nav2_ros_common/lifecycle_node.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "nav2_core/controller.hpp"
 #include "nav2_core/goal_checker.hpp"
 
@@ -51,7 +51,7 @@ public:
     * @param costmap_ros Costmap2DROS object of environment
     */
   void configure(
-    const nav2::LifecycleNode::WeakPtr & parent,
+    const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
     std::string name, const std::shared_ptr<tf2_ros::Buffer> tf,
     const std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros) override;
 
@@ -88,13 +88,13 @@ public:
     const geometry_msgs::msg::Twist & robot_speed,
     nav2_core::GoalChecker * goal_checker,
     const nav_msgs::msg::Path & transformed_global_plan,
-    const geometry_msgs::msg::PoseStamped & global_goal) override;
+    const geometry_msgs::msg::PoseStamped & global_goal);
 
   /**
     * @brief Receives a new plan from the Planner Server
     * @param raw_global_path The global plan from the Planner Server
     */
-  void newPathReceived(const nav_msgs::msg::Path & raw_global_path) override;
+  void newPathReceived(const nav_msgs::msg::Path & raw_global_path);
 
   /**
     * @brief Set new speed limit from callback
@@ -114,11 +114,11 @@ protected:
     const Eigen::ArrayXXf & optimal_trajectory);
 
   std::string name_;
-  nav2::LifecycleNode::WeakPtr parent_;
+  rclcpp_lifecycle::LifecycleNode::WeakPtr parent_;
   rclcpp::Logger logger_{rclcpp::get_logger("MPPIController")};
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  nav2::Publisher<nav_msgs::msg::Trajectory>::SharedPtr opt_traj_pub_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Trajectory>> opt_traj_pub_;
 
   std::unique_ptr<ParametersHandler> parameters_handler_;
   Optimizer optimizer_;

@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "nav_msgs/msg/path.hpp"
-#include "nav2_ros_common/lifecycle_node.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 #include "nav2_mppi_controller/tools/parameters_handler.hpp"
@@ -53,7 +53,7 @@ public:
     * @param dynamic_parameter_handler Parameter handler object
     */
   void on_configure(
-    nav2::LifecycleNode::WeakPtr parent, const std::string & name,
+    rclcpp_lifecycle::LifecycleNode::WeakPtr parent, const std::string & name,
     const std::string & frame_id, ParametersHandler * parameters_handler);
 
   /**
@@ -126,9 +126,9 @@ protected:
   static std_msgs::msg::ColorRGBA costToColor(float normalized);
 
   std::string frame_id_;
-  nav2::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
-    trajectories_publisher_;
-  nav2::Publisher<nav_msgs::msg::Path>::SharedPtr optimal_path_pub_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>>
+  trajectories_publisher_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>> optimal_path_pub_;
 
   std::unique_ptr<nav_msgs::msg::Path> optimal_path_;
   std::unique_ptr<visualization_msgs::msg::MarkerArray> points_;

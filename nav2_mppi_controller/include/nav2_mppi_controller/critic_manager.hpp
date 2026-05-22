@@ -63,7 +63,7 @@ public:
     * @param dynamic_parameter_handler Parameter handler object
     */
   void on_configure(
-    nav2::LifecycleNode::WeakPtr parent, const std::string & name,
+    rclcpp_lifecycle::LifecycleNode::WeakPtr parent, const std::string & name,
     std::shared_ptr<nav2_costmap_2d::Costmap2DROS>, ParametersHandler *);
 
   /**
@@ -98,7 +98,7 @@ protected:
   std::string getFullName(const std::string & name);
 
 protected:
-  nav2::LifecycleNode::WeakPtr parent_;
+  rclcpp_lifecycle::LifecycleNode::WeakPtr parent_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   std::string name_;
 
@@ -107,7 +107,8 @@ protected:
   std::unique_ptr<pluginlib::ClassLoader<critics::CriticFunction>> loader_;
   Critics critics_;
 
-  nav2::Publisher<nav2_msgs::msg::CriticsStats>::SharedPtr critics_effect_pub_;
+  std::shared_ptr<rclcpp_lifecycle::LifecyclePublisher<nav2_msgs::msg::CriticsStats>>
+  critics_effect_pub_;
   bool visualize_;
   std::vector<std::pair<std::string, Eigen::ArrayXf>> critic_costs_;
   rclcpp::Clock::SharedPtr clock_;

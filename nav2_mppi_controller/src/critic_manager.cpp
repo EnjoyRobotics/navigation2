@@ -18,7 +18,7 @@ namespace mppi
 {
 
 void CriticManager::on_configure(
-  nav2::LifecycleNode::WeakPtr parent, const std::string & name,
+  rclcpp_lifecycle::LifecycleNode::WeakPtr parent, const std::string & name,
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros, ParametersHandler * param_handler)
 {
   parent_ = parent;
@@ -51,7 +51,7 @@ void CriticManager::loadCritics()
   auto node = parent_.lock();
   if (visualize_) {
     critics_effect_pub_ = node->create_publisher<nav2_msgs::msg::CriticsStats>(
-      "~/critics_stats");
+      "~/critics_stats", 10);
     critics_effect_pub_->on_activate();
   }
 

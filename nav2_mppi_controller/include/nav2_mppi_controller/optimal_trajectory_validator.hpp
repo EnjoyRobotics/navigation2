@@ -19,7 +19,7 @@
 #include <string>
 #include <memory>
 
-#include "nav2_ros_common/lifecycle_node.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 #include "tf2_ros/buffer.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -69,7 +69,7 @@ public:
    * @param settings Settings for the MPPI optimizer
    */
   virtual void initialize(
-    const nav2::LifecycleNode::WeakPtr & parent,
+    const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
     const std::string & name,
     const std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap,
     ParametersHandler * param_handler,
@@ -158,7 +158,7 @@ public:
   }
 
 protected:
-  nav2::LifecycleNode::WeakPtr node_;
+  rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
   std::string name_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   ParametersHandler * param_handler_;

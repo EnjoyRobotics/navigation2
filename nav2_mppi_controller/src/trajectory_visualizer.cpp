@@ -22,15 +22,15 @@ namespace mppi
 {
 
 void TrajectoryVisualizer::on_configure(
-  nav2::LifecycleNode::WeakPtr parent, const std::string & name,
+  rclcpp_lifecycle::LifecycleNode::WeakPtr parent, const std::string & name,
   const std::string & frame_id, ParametersHandler * parameters_handler)
 {
   auto node = parent.lock();
   logger_ = node->get_logger();
   frame_id_ = frame_id;
   trajectories_publisher_ =
-    node->create_publisher<visualization_msgs::msg::MarkerArray>("~/candidate_trajectories");
-  optimal_path_pub_ = node->create_publisher<nav_msgs::msg::Path>("~/optimal_path");
+    node->create_publisher<visualization_msgs::msg::MarkerArray>("~/candidate_trajectories", 1);
+  optimal_path_pub_ = node->create_publisher<nav_msgs::msg::Path>("~/optimal_path", 1);
   parameters_handler_ = parameters_handler;
 
   auto getParam = parameters_handler->getParamGetter(name + ".TrajectoryVisualizer");

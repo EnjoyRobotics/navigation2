@@ -22,8 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "nav2_ros_common/lifecycle_node.hpp"
-#include "nav2_ros_common/node_utils.hpp"
+#include "nav2_util/node_utils.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/parameter_value.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -56,7 +55,7 @@ public:
     * @param parent Weak ptr to node
     */
   explicit ParametersHandler(
-    const nav2::LifecycleNode::WeakPtr & parent, std::string & name);
+    const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent, std::string & name);
 
   /**
     * @brief Destructor for mppi::ParametersHandler
@@ -166,7 +165,7 @@ protected:
   void setParam(
     SettingT & setting,
     const std::string & name,
-    nav2::LifecycleNode::SharedPtr node) const;
+    rclcpp_lifecycle::LifecycleNode::SharedPtr node) const;
 
   /**
     * @brief Converts parameter type to real types
@@ -182,7 +181,7 @@ protected:
     on_set_param_handler_;
   rclcpp::node_interfaces::PostSetParametersCallbackHandle::SharedPtr
     post_set_param_handler_;
-  nav2::LifecycleNode::WeakPtr node_;
+  rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
   std::string node_name_;
   std::string name_;
 
@@ -232,7 +231,7 @@ void ParametersHandler::getParam(
 {
   auto node = node_.lock();
 
-  nav2::declare_parameter_if_not_declared(
+  nav2_util::declare_parameter_if_not_declared(
     node, name, rclcpp::ParameterValue(default_value));
 
   setParam<ParamT>(setting, name, node);
@@ -241,7 +240,7 @@ void ParametersHandler::getParam(
 
 template<typename ParamT, typename SettingT>
 void ParametersHandler::setParam(
-  SettingT & setting, const std::string & name, nav2::LifecycleNode::SharedPtr node) const
+  SettingT & setting, const std::string & name, rclcpp_lifecycle::LifecycleNode::SharedPtr node) const
 {
   ParamT param_in{};
   node->get_parameter(name, param_in);
