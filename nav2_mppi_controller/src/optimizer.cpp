@@ -233,7 +233,7 @@ std::tuple<geometry_msgs::msg::TwistStamped, Eigen::ArrayXXf> Optimizer::evalCon
     optimize();
     optimal_trajectory = getOptimizedTrajectory();
     switch (trajectory_validator_->validateTrajectory(
-        optimal_trajectory, control_sequence_, robot_pose, robot_speed, plan, goal))
+        optimal_trajectory, control_sequence_, robot_pose, robot_speed))
     {
       case mppi::ValidationResult::SOFT_RESET:
         trajectory_valid = false;

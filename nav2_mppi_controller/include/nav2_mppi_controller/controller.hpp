@@ -18,6 +18,7 @@
 #include <string>
 #include <memory>
 
+#include "nav2_mppi_controller/tools/path_handler.hpp"
 #include "nav2_mppi_controller/optimizer.hpp"
 #include "nav2_mppi_controller/tools/trajectory_visualizer.hpp"
 #include "nav2_mppi_controller/models/constraints.hpp"
@@ -86,15 +87,19 @@ public:
   geometry_msgs::msg::TwistStamped computeVelocityCommands(
     const geometry_msgs::msg::PoseStamped & robot_pose,
     const geometry_msgs::msg::Twist & robot_speed,
-    nav2_core::GoalChecker * goal_checker,
-    const nav_msgs::msg::Path & transformed_global_plan,
-    const geometry_msgs::msg::PoseStamped & global_goal);
+    nav2_core::GoalChecker * goal_checker);
 
   /**
     * @brief Receives a new plan from the Planner Server
     * @param raw_global_path The global plan from the Planner Server
     */
   void newPathReceived(const nav_msgs::msg::Path & raw_global_path);
+
+  /**
+    * @brief Set new reference path to track
+    * @param path Path to track
+    */
+  void setPlan(const nav_msgs::msg::Path & path) override;
 
   /**
     * @brief Set new speed limit from callback
@@ -122,6 +127,7 @@ protected:
 
   std::unique_ptr<ParametersHandler> parameters_handler_;
   Optimizer optimizer_;
+  PathHandler path_handler_;
   TrajectoryVisualizer trajectory_visualizer_;
 
   bool visualize_;
