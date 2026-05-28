@@ -13,6 +13,9 @@
 // limitations under the License.
 
 #include <benchmark/benchmark.h>
+
+#include <Eigen/Dense>
+
 #include <string>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -23,10 +26,6 @@
 #include <nav2_costmap_2d/costmap_2d.hpp>
 #include <nav2_costmap_2d/costmap_2d_ros.hpp>
 #include <nav2_core/goal_checker.hpp>
-
-#include <xtensor/xarray.hpp>
-#include <xtensor/xio.hpp>
-#include <xtensor/xview.hpp>
 
 #include "nav2_mppi_controller/motion_models.hpp"
 #include "nav2_mppi_controller/controller.hpp"
@@ -107,12 +106,14 @@ void prepareAndRunBenchmark(
   auto velocity = getDummyTwist();
   auto path = getIncrementalDummyPath(node, path_settings);
 
-  controller->setPlan(path);
+  controller->newPathReceived(path);
 
   nav2_core::GoalChecker * dummy_goal_checker{nullptr};
-
+  nav_msgs::msg::Path transformed_global_plan;
+  geometry_msgs::msg::PoseStamped goal;
   for (auto _ : state) {
-    controller->computeVelocityCommands(pose, velocity, dummy_goal_checker);
+    controller->computeVelocityCommands(pose, velocity, dummy_goal_checker, transformed_global_plan,
+      goal);
   }
   map_odom_broadcaster.wait();
   odom_base_link_broadcaster.wait();
