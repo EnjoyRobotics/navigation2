@@ -34,21 +34,21 @@ void AssistedTeleop::onConfigure()
   // set up parameters
   nav2_util::declare_parameter_if_not_declared(
     node,
-    "projection_time", rclcpp::ParameterValue(1.0));
+    behavior_name_ + ".projection_time", rclcpp::ParameterValue(1.0));
 
   nav2_util::declare_parameter_if_not_declared(
     node,
-    "simulation_time_step", rclcpp::ParameterValue(0.1));
+    behavior_name_ + ".simulation_time_step", rclcpp::ParameterValue(0.1));
 
   nav2_util::declare_parameter_if_not_declared(
     node,
-    "cmd_vel_teleop", rclcpp::ParameterValue(std::string("cmd_vel_teleop")));
+    behavior_name_ + ".cmd_vel_teleop", rclcpp::ParameterValue(std::string("cmd_vel_teleop")));
 
-  node->get_parameter("projection_time", projection_time_);
-  node->get_parameter("simulation_time_step", simulation_time_step_);
+  node->get_parameter(behavior_name_ + ".projection_time", projection_time_);
+  node->get_parameter(behavior_name_ + ".simulation_time_step", simulation_time_step_);
 
   std::string cmd_vel_teleop;
-  node->get_parameter("cmd_vel_teleop", cmd_vel_teleop);
+  node->get_parameter(behavior_name_ + ".cmd_vel_teleop", cmd_vel_teleop);
 
   vel_sub_ = std::make_unique<nav2_util::TwistSubscriber>(
     node,
