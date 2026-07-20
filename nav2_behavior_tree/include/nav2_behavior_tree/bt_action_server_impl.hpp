@@ -158,7 +158,7 @@ bool BtActionServer<ActionT>::on_configure()
     node->get_node_logging_interface(),
     node->get_node_waitables_interface(),
     action_name_, std::bind(&BtActionServer<ActionT>::executeCallback, this),
-    nullptr, std::chrono::milliseconds(500), false, server_options);
+    on_goal_received_callback_, nullptr, std::chrono::milliseconds(500), false, server_options);
 
   // Get parameters for BT timeouts
   int bt_loop_duration;
@@ -294,12 +294,6 @@ bool BtActionServer<ActionT>::loadBehaviorTree(const std::string & bt_xml_filena
 template<class ActionT>
 void BtActionServer<ActionT>::executeCallback()
 {
-  if (!on_goal_received_callback_(action_server_->get_current_goal())) {
-    action_server_->terminate_current();
-    cleanErrorCodes();
-    return;
-  }
-
   auto is_canceling = [&]() {
       if (action_server_ == nullptr) {
         RCLCPP_DEBUG(logger_, "Action server unavailable. Canceling.");
