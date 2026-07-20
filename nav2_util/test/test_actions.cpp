@@ -45,7 +45,8 @@ public:
     action_server_ = std::make_shared<nav2_util::SimpleActionServer<Fibonacci>>(
       shared_from_this(),
       "fibonacci",
-      std::bind(&FibonacciServerNode::execute, this));
+      std::bind(&FibonacciServerNode::execute, this),
+      std::bind(&FibonacciServerNode::goalReceivedCallback, this, std::placeholders::_1));
 
     deactivate_subs_ = create_subscription<std_msgs::msg::Empty>(
       "deactivate_server",
@@ -70,6 +71,22 @@ public:
         RCLCPP_INFO(this->get_logger(), "Ignoring preemptions");
         do_premptions_ = false;
       });
+
+    reject_goal_subs_ = create_subscription<std_msgs::msg::Empty>(
+      "reject_goal",
+      1,
+      [this](std_msgs::msg::Empty::UniquePtr /*msg*/) {
+        RCLCPP_INFO(this->get_logger(), "Rejecting goals via callback");
+        reject_goal_ = true;
+      });
+
+    allow_goal_subs_ = create_subscription<std_msgs::msg::Empty>(
+      "allow_goal",
+      1,
+      [this](std_msgs::msg::Empty::UniquePtr /*msg*/) {
+        RCLCPP_INFO(this->get_logger(), "Allowing goals via callback");
+        reject_goal_ = false;
+      });
   }
 
   void on_term()
@@ -82,6 +99,8 @@ public:
     // auto feedback = std::make_shared<Fibonacci::Feedback>();
     // action_server_->publish_feedback(feedback);
     omit_preempt_subs_.reset();
+    allow_goal_subs_.reset();
+    reject_goal_subs_.reset();
     activate_subs_.reset();
     deactivate_subs_.reset();
     while (action_server_->is_running()) {
@@ -135,13 +154,21 @@ preempted:
     }
   }
 
+  bool goalReceivedCallback(std::shared_ptr<const Fibonacci::Goal> /*goal*/)
+  {
+    return !reject_goal_;
+  }
+
 private:
   std::shared_ptr<nav2_util::SimpleActionServer<Fibonacci>> action_server_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr deactivate_subs_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr activate_subs_;
   rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr omit_preempt_subs_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr reject_goal_subs_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr allow_goal_subs_;
 
   bool do_premptions_{true};
+  bool reject_goal_{false};
 };
 
 class RclCppFixture
@@ -204,11 +231,15 @@ public:
     deactivate_pub_ = this->create_publisher<std_msgs::msg::Empty>("deactivate_server", 1);
     activate_pub_ = this->create_publisher<std_msgs::msg::Empty>("activate_server", 1);
     omit_prempt_pub_ = this->create_publisher<std_msgs::msg::Empty>("omit_preemption", 1);
+    reject_goal_pub_ = this->create_publisher<std_msgs::msg::Empty>("reject_goal", 1);
+    allow_goal_pub_ = this->create_publisher<std_msgs::msg::Empty>("allow_goal", 1);
   }
 
   void on_term()
   {
     omit_prempt_pub_.reset();
+    allow_goal_pub_.reset();
+    reject_goal_pub_.reset();
     activate_pub_.reset();
     deactivate_pub_.reset();
     action_client_.reset();
@@ -229,10 +260,22 @@ public:
     omit_prempt_pub_->publish(std_msgs::msg::Empty());
   }
 
+  void reject_via_callback()
+  {
+    reject_goal_pub_->publish(std_msgs::msg::Empty());
+  }
+
+  void allow_via_callback()
+  {
+    allow_goal_pub_->publish(std_msgs::msg::Empty());
+  }
+
   rclcpp_action::Client<Fibonacci>::SharedPtr action_client_;
   rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr deactivate_pub_;
   rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr activate_pub_;
   rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr omit_prempt_pub_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr reject_goal_pub_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr allow_goal_pub_;
 };
 
 class ActionTest : public ::testing::Test
@@ -523,6 +566,46 @@ TEST_F(ActionTest, test_simple_action_preemption_after_succeeded)
   }
 
   EXPECT_EQ(sum, 1);
+  SUCCEED();
+}
+
+TEST_F(ActionTest, test_handle_goal_rejected_by_callback)
+{
+  // Activate the server first
+  node_->activate_server();
+
+  // Publish a signal to make the server reject goals via callback
+  node_->reject_via_callback();
+
+  auto goal = Fibonacci::Goal();
+  goal.order = 12;
+
+  auto future_goal_handle = node_->action_client_->async_send_goal(goal);
+  EXPECT_EQ(
+    rclcpp::spin_until_future_complete(
+      node_,
+      future_goal_handle), rclcpp::FutureReturnCode::SUCCESS);
+
+  // Goal should be outright rejected (handle is null), not accepted then aborted
+  EXPECT_EQ(future_goal_handle.get(), nullptr);
+
+  // Re-allow goals and confirm server still works
+  node_->allow_via_callback();
+
+  goal.order = 5;
+  future_goal_handle = node_->action_client_->async_send_goal(goal);
+  EXPECT_EQ(
+    rclcpp::spin_until_future_complete(
+      node_,
+      future_goal_handle), rclcpp::FutureReturnCode::SUCCESS);
+  EXPECT_NE(future_goal_handle.get(), nullptr);
+
+  auto future_result = node_->action_client_->async_get_result(future_goal_handle.get());
+  EXPECT_EQ(
+    rclcpp::spin_until_future_complete(node_, future_result),
+    rclcpp::FutureReturnCode::SUCCESS);
+  EXPECT_EQ(future_result.get().code, rclcpp_action::ResultCode::SUCCEEDED);
+
   SUCCEED();
 }
 
