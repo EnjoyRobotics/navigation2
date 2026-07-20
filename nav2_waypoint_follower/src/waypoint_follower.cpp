@@ -89,7 +89,7 @@ WaypointFollower::on_configure(const rclcpp_lifecycle::State & state)
     get_node_waitables_interface(),
     "follow_waypoints", std::bind(
       &WaypointFollower::followWaypointsCallback,
-      this), nullptr, std::chrono::milliseconds(
+      this), nullptr, nullptr, std::chrono::milliseconds(
       500), false, server_options);
 
   from_ll_to_map_client_ = std::make_unique<
@@ -106,7 +106,7 @@ WaypointFollower::on_configure(const rclcpp_lifecycle::State & state)
     "follow_gps_waypoints",
     std::bind(
       &WaypointFollower::followGPSWaypointsCallback,
-      this), nullptr, std::chrono::milliseconds(
+      this), nullptr, nullptr, std::chrono::milliseconds(
       500), false, server_options);
 
   try {

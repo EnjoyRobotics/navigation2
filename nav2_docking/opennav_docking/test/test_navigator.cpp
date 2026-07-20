@@ -48,7 +48,7 @@ public:
       get_node_logging_interface(),
       get_node_waitables_interface(),
       "navigate_to_pose", std::bind(&DummyNavigationServer::executeCallback, this),
-      nullptr, std::chrono::milliseconds(500), true);
+      nullptr, nullptr, std::chrono::milliseconds(500), true);
 
     action_server_->activate();
   }

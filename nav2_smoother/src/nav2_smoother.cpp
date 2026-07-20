@@ -118,6 +118,7 @@ SmootherServer::on_configure(const rclcpp_lifecycle::State & state)
     "smooth_path",
     std::bind(&SmootherServer::smoothPlan, this),
     nullptr,
+    nullptr,
     std::chrono::milliseconds(500),
     true, server_options);
 
