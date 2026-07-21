@@ -164,6 +164,7 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & state)
     "compute_path_to_pose",
     std::bind(&PlannerServer::computePlan, this),
     nullptr,
+    nullptr,
     std::chrono::milliseconds(500),
     true, server_options);
 
@@ -171,6 +172,7 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & state)
     shared_from_this(),
     "compute_path_through_poses",
     std::bind(&PlannerServer::computePlanThroughPoses, this),
+    nullptr,
     nullptr,
     std::chrono::milliseconds(500),
     true, server_options);
