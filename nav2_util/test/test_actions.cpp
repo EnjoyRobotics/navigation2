@@ -154,7 +154,7 @@ preempted:
     }
   }
 
-  bool goalReceivedCallback(std::shared_ptr<const Fibonacci::Goal> /*goal*/)
+  bool goalReceivedCallback(std::shared_ptr<const Fibonacci::Goal>/*goal*/)
   {
     return !reject_goal_;
   }
