@@ -304,13 +304,17 @@ void KeepoutFilter::process(
       }
 
       const auto & info = filter_mask_->info;
+      // Account for the distance from a mask cell center to any point in the
+      // cell, keeping the override active while the footprint touches a cell.
+      const double overlap_radius =
+        footprint_radius + std::sqrt(2.0) * info.resolution;
       const int radius_cells = static_cast<int>(
-        std::ceil(footprint_radius / info.resolution));
+        std::ceil(overlap_radius / info.resolution));
       unsigned int center_i, center_j;
       if (worldToMask(filter_mask_, mask_pose.x, mask_pose.y, center_i, center_j)) {
         for (int dx = -radius_cells; dx <= radius_cells && !is_pose_lethal; ++dx) {
           for (int dy = -radius_cells; dy <= radius_cells && !is_pose_lethal; ++dy) {
-            if (std::hypot(dx, dy) * info.resolution > footprint_radius) {
+            if (std::hypot(dx, dy) * info.resolution > overlap_radius) {
               continue;
             }
             const int mask_i = static_cast<int>(center_i) + dx;
