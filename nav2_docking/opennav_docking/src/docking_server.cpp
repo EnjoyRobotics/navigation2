@@ -435,18 +435,24 @@ bool DockingServer::approachDock(Dock * dock, geometry_msgs::msg::PoseStamped & 
     // Thus, we backward project the controller's target pose a little bit after the
     // dock so that the robot never gets to the end of the spiral before its in contact
     // with the dock to stop the docking procedure.
-    const float sign = dock_backwards_ ? -1.0 : 1.0;
-    const double backward_projection = 0.25 * sign;
+    const double backward_projection = 0.25;
     const double yaw = tf2::getYaw(target_pose.pose.orientation);
     target_pose.pose.position.x += cos(yaw) * backward_projection;
     target_pose.pose.position.y += sin(yaw) * backward_projection;
     tf2_buffer_->transform(target_pose, target_pose, base_frame_);
 
-    // Make sure that the target pose is pointing at the robot when moving backwards
-    // This is to ensure that the robot doesn't try to dock from the wrong side
+    // Make sure that the target pose is pointing at the robot when moving backwards.
+    // Only flip orientation when needed, otherwise keep the detected heading.
     if (dock_backwards_) {
-      target_pose.pose.orientation = nav2_util::geometry_utils::orientationAroundZAxis(
-        tf2::getYaw(target_pose.pose.orientation) + M_PI);
+      const double target_yaw = tf2::getYaw(target_pose.pose.orientation);
+      const double yaw_to_robot = std::atan2(
+        -target_pose.pose.position.y, -target_pose.pose.position.x);
+      const double yaw_error = angles::shortest_angular_distance(target_yaw, yaw_to_robot);
+      if (std::abs(yaw_error) > M_PI_2) {
+        target_pose.pose.orientation = nav2_util::geometry_utils::orientationAroundZAxis(
+          target_yaw + M_PI);
+      }
+
     }
 
     // Compute and publish controls
