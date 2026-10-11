@@ -147,7 +147,7 @@ IntermediatePlannerServer::configure()
     node_,
     "compute_local_path",
     std::bind(&IntermediatePlannerServer::computePlan, this),
-    nullptr,
+    nullptr, nullptr,
     std::chrono::milliseconds(500),
     true);
 

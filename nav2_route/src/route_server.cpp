@@ -54,6 +54,7 @@ RouteServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
     "compute_route",
     std::bind(&RouteServer::computeRoute, this),
     nullptr,
+    nullptr,
     std::chrono::milliseconds(500),
     true, server_options);
 
@@ -61,6 +62,7 @@ RouteServer::on_configure(const rclcpp_lifecycle::State & /*state*/)
     shared_from_this(),
     "compute_and_track_route",
     std::bind(&RouteServer::computeAndTrackRoute, this),
+    nullptr,
     nullptr,
     std::chrono::milliseconds(500),
     true, server_options);
