@@ -137,17 +137,18 @@ void PauseResumeController::pauseServiceCallback(
   const std::shared_ptr<Trigger::Request>/*request*/,
   std::shared_ptr<Trigger::Response> response)
 {
-  if (state_ != PAUSED) {
+  if (state_ == PAUSED) {
+    std::string warn_message = "PauseResumeController BT node already in state PAUSED";
+    RCLCPP_WARN(logger_, "%s", warn_message.c_str());
+    response->success = false;
+    response->message = warn_message;
+  } else {
     RCLCPP_INFO(logger_, "Received pause request");
     response->success = true;
-    state_ = PAUSE_REQUESTED;
-    return;
+    if (state_ == RESUMED || state_ == RESUME_REQUESTED || state_ == ON_RESUME) {
+      state_ = PAUSE_REQUESTED;
+    }
   }
-
-  std::string warn_message = "PauseResumeController BT node already in state PAUSED";
-  RCLCPP_WARN(logger_, "%s", warn_message.c_str());
-  response->success = false;
-  response->message = warn_message;
 }
 
 void PauseResumeController::resumeServiceCallback(
@@ -155,17 +156,18 @@ void PauseResumeController::resumeServiceCallback(
   const std::shared_ptr<Trigger::Request>/*request*/,
   std::shared_ptr<Trigger::Response> response)
 {
-  if (state_ == PAUSED) {
+  if (state_ != RESUMED) {
     RCLCPP_INFO(logger_, "Received resume request");
     response->success = true;
-    state_ = RESUME_REQUESTED;
-    return;
+    if (state_ == PAUSED || state_ == PAUSE_REQUESTED || state_ == ON_PAUSE) {
+      state_ = RESUME_REQUESTED;
+    }
+  } else {
+    std::string warn_message = "PauseResumeController BT node already in state RESUMED";
+    RCLCPP_WARN(logger_, "%s", warn_message.c_str());
+    response->success = false;
+    response->message = warn_message;
   }
-
-  std::string warn_message = "PauseResumeController BT node not in state PAUSED";
-  RCLCPP_WARN(logger_, "%s", warn_message.c_str());
-  response->success = false;
-  response->message = warn_message;
 }
 
 void PauseResumeController::halt()

@@ -244,6 +244,9 @@ TEST_F(PauseResumeControllerTestFixture, test_behavior)
   EXPECT_EQ(tree_->rootNode()->executeTick(), BT::NodeStatus::RUNNING);
   EXPECT_EQ(pause_bt_node->getState(), state_t::PAUSED);
   check_future_result(future, false);
+  EXPECT_EQ(
+    future.get()->message,
+    "PauseResumeController BT node already in state PAUSED");
 
   // Call resume service, change ON_RESUME child to FAILURE, expect FAILURE
   future = resume_client_->async_send_request(
@@ -268,6 +271,75 @@ TEST_F(PauseResumeControllerTestFixture, test_behavior)
   EXPECT_EQ(tree_->rootNode()->executeTick(), BT::NodeStatus::SUCCESS);
   EXPECT_EQ(pause_bt_node->getState(), state_t::RESUMED);
   check_future_result(future, false);
+  EXPECT_EQ(
+    future.get()->message,
+    "PauseResumeController BT node already in state RESUMED");
+}
+
+TEST_F(PauseResumeControllerTestFixture, test_interrupt_transitions)
+{
+  std::string xml_txt =
+    R"(
+      <root BTCPP_format="4">
+        <BehaviorTree ID="MainTree">
+          <PauseResumeController
+            pause_service_name="pause"
+            resume_service_name="resume">
+            <DummyNode/>  <!-- RESUMED -->
+            <DummyNode/>  <!-- PAUSED -->
+            <DummyNode/>  <!-- ON_PAUSE -->
+            <DummyNode/>  <!-- ON_RESUME -->
+          </PauseResumeController>
+        </BehaviorTree>
+      </root>)";
+  tree_ = std::make_shared<BT::Tree>(factory_->createTreeFromText(xml_txt, config_->blackboard));
+
+  auto pause_bt_node =
+    nav2_behavior_tree::get_node_from_tree<nav2_behavior_tree::PauseResumeController>(tree_);
+  auto resumed_child =
+    nav2_behavior_tree::get_node_from_tree<nav2_behavior_tree::DummyNode>(tree_, 0);
+  auto on_pause_child =
+    nav2_behavior_tree::get_node_from_tree<nav2_behavior_tree::DummyNode>(tree_, 2);
+  auto on_resume_child =
+    nav2_behavior_tree::get_node_from_tree<nav2_behavior_tree::DummyNode>(tree_, 3);
+  ASSERT_NE(pause_bt_node, nullptr);
+  ASSERT_NE(resumed_child, nullptr);
+  ASSERT_NE(on_pause_child, nullptr);
+  ASSERT_NE(on_resume_child, nullptr);
+
+  using state_t = nav2_behavior_tree::state_t;
+  const auto check_future_result = [](
+    rclcpp::Client<std_srvs::srv::Trigger>::FutureAndRequestId & future)
+    {
+      executor_->spin_until_future_complete(future, std::chrono::seconds(1));
+      ASSERT_EQ(future.wait_for(std::chrono::seconds(0)), std::future_status::ready);
+      EXPECT_TRUE(future.get()->success);
+    };
+  resumed_child->changeStatus(BT::NodeStatus::RUNNING);
+  on_pause_child->changeStatus(BT::NodeStatus::RUNNING);
+  on_resume_child->changeStatus(BT::NodeStatus::RUNNING);
+
+  EXPECT_EQ(tree_->rootNode()->executeTick(), BT::NodeStatus::RUNNING);
+
+  auto future = pause_client_->async_send_request(
+    std::make_shared<std_srvs::srv::Trigger::Request>());
+  EXPECT_EQ(tree_->rootNode()->executeTick(), BT::NodeStatus::RUNNING);
+  EXPECT_EQ(pause_bt_node->getState(), state_t::ON_PAUSE);
+  check_future_result(future);
+
+  future = resume_client_->async_send_request(
+    std::make_shared<std_srvs::srv::Trigger::Request>());
+  EXPECT_EQ(tree_->rootNode()->executeTick(), BT::NodeStatus::RUNNING);
+  EXPECT_EQ(pause_bt_node->getState(), state_t::ON_RESUME);
+  EXPECT_EQ(on_pause_child->status(), BT::NodeStatus::IDLE);
+  check_future_result(future);
+
+  future = pause_client_->async_send_request(
+    std::make_shared<std_srvs::srv::Trigger::Request>());
+  EXPECT_EQ(tree_->rootNode()->executeTick(), BT::NodeStatus::RUNNING);
+  EXPECT_EQ(pause_bt_node->getState(), state_t::ON_PAUSE);
+  EXPECT_EQ(on_resume_child->status(), BT::NodeStatus::IDLE);
+  check_future_result(future);
 }
 
 int main(int argc, char ** argv)
