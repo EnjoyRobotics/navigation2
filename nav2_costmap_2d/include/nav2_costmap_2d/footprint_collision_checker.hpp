@@ -49,6 +49,14 @@ public:
    */
   explicit FootprintCollisionChecker(CostmapT costmap);
   /**
+   * @brief A constructor.
+   * @param costmap Costmap to check against
+   * @param unknown_is_valid If true, NO_INFORMATION cells and footprint points outside of the
+   * costmap carry no information: they are ignored when finding the maximum footprint cost
+   * instead of being scored as NO_INFORMATION / LETHAL_OBSTACLE respectively.
+   */
+  FootprintCollisionChecker(CostmapT costmap, bool unknown_is_valid);
+  /**
    * @brief Find the footprint cost in oriented footprint
    */
   double footprintCost(const Footprint & footprint);
@@ -80,8 +88,17 @@ public:
     return costmap_;
   }
 
+  /**
+  * @brief Set whether unknown (and out of bounds) space is ignored when finding the max cost
+  */
+  void setUnknownIsValid(bool unknown_is_valid)
+  {
+    unknown_is_valid_ = unknown_is_valid;
+  }
+
 protected:
   CostmapT costmap_;
+  bool unknown_is_valid_{false};
 };
 
 }  // namespace nav2_costmap_2d
