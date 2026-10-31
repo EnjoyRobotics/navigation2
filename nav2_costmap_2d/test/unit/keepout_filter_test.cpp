@@ -510,6 +510,19 @@ TEST(KeepoutFilterTF, FreshnessAndLethalOverride)
   auto buffer = nav2::create_transform_buffer(node);
   nav2_costmap_2d::LayeredCostmap layers("odom", false, false);
   layers.resizeMap(4, 1, 1.0, 0.0, 0.0);
+
+  // Small footprint that stays within a single cell around the robot pose
+  std::vector<geometry_msgs::msg::Point> footprint(4);
+  footprint[0].x = -0.1;
+  footprint[0].y = -0.1;
+  footprint[1].x = -0.1;
+  footprint[1].y = 0.1;
+  footprint[2].x = 0.1;
+  footprint[2].y = 0.1;
+  footprint[3].x = 0.1;
+  footprint[3].y = -0.1;
+  layers.setFootprint(footprint);
+
   auto mask = std::make_shared<nav_msgs::msg::OccupancyGrid>();
   mask->header.frame_id = "map";
   mask->info.width = 4;
