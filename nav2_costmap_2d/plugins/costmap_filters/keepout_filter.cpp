@@ -39,6 +39,7 @@
 #include <memory>
 #include <algorithm>
 #include "tf2/convert.h"
+#include "tf2/utils.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 #include "nav2_costmap_2d/costmap_filters/keepout_filter.hpp"
@@ -48,7 +49,7 @@ namespace nav2_costmap_2d
 {
 
 KeepoutFilter::KeepoutFilter()
-: filter_info_sub_(nullptr), mask_sub_(nullptr), filter_mask_(nullptr),
+: filter_info_sub_(nullptr), mask_sub_(nullptr), filter_mask_costmap_(nullptr),
   global_frame_("")
 {
 }
@@ -139,7 +140,7 @@ void KeepoutFilter::maskCallback(
     throw std::runtime_error{"Failed to lock node"};
   }
 
-  if (!filter_mask_) {
+  if (!filter_mask_costmap_) {
     RCLCPP_INFO(
       logger_,
       "KeepoutFilter: Received filter mask from %s topic.", mask_topic_.c_str());
@@ -148,11 +149,11 @@ void KeepoutFilter::maskCallback(
       logger_,
       "KeepoutFilter: New filter mask arrived from %s topic. Updating old filter mask.",
       mask_topic_.c_str());
-    filter_mask_.reset();
+    filter_mask_costmap_.reset();
   }
 
-  // Store filter_mask_
-  filter_mask_ = msg;
+  filter_mask_costmap_ = std::make_unique<Costmap2D>(*msg);
+  filter_mask_frame_ = msg->header.frame_id;
   has_updated_data_ = true;
   x_ = y_ = 0;
   width_ = msg->info.width;
@@ -166,6 +167,8 @@ void KeepoutFilter::updateBounds(
   if (!enabled_) {
     return;
   }
+
+  std::lock_guard<CostmapFilter::mutex_t> guard(*getMutex());
 
   CostmapFilter::updateBounds(robot_x, robot_y, robot_yaw, min_x, min_y, max_x, max_y);
 
@@ -193,7 +196,7 @@ void KeepoutFilter::process(
 {
   std::lock_guard<CostmapFilter::mutex_t> guard(*getMutex());
 
-  if (!filter_mask_) {
+  if (!filter_mask_costmap_) {
     // Show warning message every 2 seconds to not litter an output
     RCLCPP_WARN_THROTTLE(
       logger_, *(clock_), 2000,
@@ -206,7 +209,7 @@ void KeepoutFilter::process(
   int mg_min_x, mg_min_y;  // masger_grid indexes of bottom-left window corner
   int mg_max_x, mg_max_y;  // masger_grid indexes of top-right window corner
 
-  const std::string mask_frame = filter_mask_->header.frame_id;
+  const std::string & mask_frame = filter_mask_frame_;
 
   if (mask_frame != global_frame_) {
     // Filter mask and current layer are in different frames:
@@ -254,10 +257,10 @@ void KeepoutFilter::process(
     double wx, wy;  // world coordinates
 
     // Calculating bounds corresponding to bottom-left overlapping (1) corner
-    // filter_mask_ -> master_grid indexes conversion
-    const double half_cell_size = 0.5 * filter_mask_->info.resolution;
-    wx = filter_mask_->info.origin.position.x + half_cell_size;
-    wy = filter_mask_->info.origin.position.y + half_cell_size;
+    // filter_mask_costmap_ -> master_grid indexes conversion
+    const double half_cell_size = 0.5 * filter_mask_costmap_->getResolution();
+    wx = filter_mask_costmap_->getOriginX() + half_cell_size;
+    wy = filter_mask_costmap_->getOriginY() + half_cell_size;
     master_grid.worldToMapNoBounds(wx, wy, mg_min_x, mg_min_y);
     // Calculation of (1) corner bounds
     if (mg_min_x >= max_i || mg_min_y >= max_j) {
@@ -269,10 +272,12 @@ void KeepoutFilter::process(
 
     // Calculating bounds corresponding to top-right window (2) corner
     // filter_mask_ -> master_grid intexes conversion
-    wx = filter_mask_->info.origin.position.x +
-      filter_mask_->info.width * filter_mask_->info.resolution + half_cell_size;
-    wy = filter_mask_->info.origin.position.y +
-      filter_mask_->info.height * filter_mask_->info.resolution + half_cell_size;
+    wx = filter_mask_costmap_->getOriginX() +
+      filter_mask_costmap_->getSizeInCellsX() * filter_mask_costmap_->getResolution() +
+      half_cell_size;
+    wy = filter_mask_costmap_->getOriginY() +
+      filter_mask_costmap_->getSizeInCellsY() * filter_mask_costmap_->getResolution() +
+      half_cell_size;
     master_grid.worldToMapNoBounds(wx, wy, mg_max_x, mg_max_y);
     // Calculation of (2) corner bounds
     if (mg_max_x <= min_i || mg_max_y <= min_j) {
@@ -289,20 +294,32 @@ void KeepoutFilter::process(
   unsigned int mg_max_x_u = static_cast<unsigned int>(mg_max_x);
   unsigned int mg_max_y_u = static_cast<unsigned int>(mg_max_y);
 
-  // Let's find the pose's cost if we are allowed to override the lethal cost
+  // Let's find the footprint cost if we are allowed to override the lethal cost
   bool is_pose_lethal = false;
   if (override_lethal_cost_) {
     geometry_msgs::msg::Pose2D mask_pose;
-    if (transformPose(global_frame_, pose, filter_mask_->header.frame_id, mask_pose)) {
-      unsigned int mask_robot_i, mask_robot_j;
-      if (worldToMask(filter_mask_, mask_pose.x, mask_pose.y, mask_robot_i, mask_robot_j)) {
-        auto data = getMaskCost(filter_mask_, mask_robot_i, mask_robot_j);
-        is_pose_lethal = (data == INSCRIBED_INFLATED_OBSTACLE || data == LETHAL_OBSTACLE);
-        if (is_pose_lethal) {
-          RCLCPP_WARN_THROTTLE(
-            logger_, *(clock_), 2000,
-            "KeepoutFilter: Pose is in keepout zone, reducing cost override to navigate out.");
-        }
+    if (transformPose(global_frame_, pose, filter_mask_frame_, mask_pose)) {
+      // transformPose only converts the position, so rotate the heading into the mask frame
+      const double mask_theta = pose.theta + tf2::getYaw(tf2_transform.getRotation());
+      const auto & footprint = layered_costmap_->getFootprint();
+      unsigned int mask_x, mask_y;
+      if (filter_mask_costmap_->worldToMap(mask_pose.x, mask_pose.y, mask_x, mask_y)) {
+        // With an empty footprint, fall back to checking the cost at the robot's position.
+        // Unknown mask cells and space outside of the mask are not keepout zones (same as in
+        // process()), so they must neither hide lethal cells nor count as lethal themselves.
+        // FootprintCollisionChecker is created inline to avoid keeping a raw pointer to
+        // filter_mask_costmap_ (the constructor only stores the pointer, so it is cheap)
+        const double cost = footprint.empty() ?
+          static_cast<double>(filter_mask_costmap_->getCost(mask_x, mask_y)) :
+          FootprintCollisionChecker<Costmap2D *>(
+            filter_mask_costmap_.get(), true).footprintCostAtPose(
+          mask_pose.x, mask_pose.y, mask_theta, footprint);
+        is_pose_lethal = (cost == INSCRIBED_INFLATED_OBSTACLE || cost == LETHAL_OBSTACLE);
+      }
+      if (is_pose_lethal) {
+        RCLCPP_WARN_THROTTLE(
+          logger_, *(clock_), 2000,
+          "KeepoutFilter: Footprint is in keepout zone, reducing cost override to navigate out.");
       }
     }
 
@@ -355,8 +372,8 @@ void KeepoutFilter::process(
         msk_wy = gl_wy;
       }
       // Get mask coordinates corresponding to (i, j) point at filter_mask_
-      if (worldToMask(filter_mask_, msk_wx, msk_wy, mx, my)) {
-        data = getMaskCost(filter_mask_, mx, my);
+      if (filter_mask_costmap_->worldToMap(msk_wx, msk_wy, mx, my)) {
+        data = filter_mask_costmap_->getCost(mx, my);
         // Update if mask_ data is valid and greater than existing master_grid's one
         if (data == NO_INFORMATION) {
           continue;
@@ -388,7 +405,7 @@ bool KeepoutFilter::isActive()
 {
   std::lock_guard<CostmapFilter::mutex_t> guard(*getMutex());
 
-  if (filter_mask_) {
+  if (filter_mask_costmap_) {
     return true;
   }
   return false;

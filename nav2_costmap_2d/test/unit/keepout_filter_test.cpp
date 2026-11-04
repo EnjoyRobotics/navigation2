@@ -106,7 +106,7 @@ protected:
   void rePublishInfo(double base, double multiplier);
   void rePublishMask();
   void waitSome(const std::chrono::nanoseconds & duration);
-  void createKeepoutFilter(const std::string & global_frame);
+  void createKeepoutFilter(const std::string & global_frame, bool override_lethal_cost = false);
   void createTFBroadcaster(const std::string & mask_frame, const std::string & global_frame);
   void verifyMasterGrid(unsigned char free_value, unsigned char keepout_value);
   void testStandardScenario(unsigned char free_value, unsigned char keepout_value);
@@ -115,6 +115,7 @@ protected:
 
   std::shared_ptr<nav2_costmap_2d::KeepoutFilter> keepout_filter_;
   std::shared_ptr<nav2_costmap_2d::Costmap2D> master_grid_;
+  std::unique_ptr<nav2_costmap_2d::LayeredCostmap> layered_costmap_;
 
   std::vector<Point> keepout_points_;
 
@@ -206,14 +207,15 @@ void TestNode::waitSome(const std::chrono::nanoseconds & duration)
   }
 }
 
-void TestNode::createKeepoutFilter(const std::string & global_frame)
+void TestNode::createKeepoutFilter(const std::string & global_frame, bool override_lethal_cost)
 {
   node_ = std::make_shared<nav2_util::LifecycleNode>("test_node");
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node_->get_clock());
   tf_buffer_->setUsingDedicatedThread(true);  // One-thread broadcasting-listening model
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  nav2_costmap_2d::LayeredCostmap layers(global_frame, false, false);
+  layered_costmap_ = std::make_unique<nav2_costmap_2d::LayeredCostmap>(
+    global_frame, false, false);
 
   node_->declare_parameter(
     std::string(FILTER_NAME) + ".transform_tolerance", rclcpp::ParameterValue(0.5));
@@ -223,9 +225,16 @@ void TestNode::createKeepoutFilter(const std::string & global_frame)
     std::string(FILTER_NAME) + ".filter_info_topic", rclcpp::ParameterValue(INFO_TOPIC));
   node_->set_parameter(
     rclcpp::Parameter(std::string(FILTER_NAME) + ".filter_info_topic", INFO_TOPIC));
+  node_->declare_parameter(
+    std::string(FILTER_NAME) + ".override_lethal_cost",
+    rclcpp::ParameterValue(override_lethal_cost));
+  node_->set_parameter(
+    rclcpp::Parameter(
+      std::string(FILTER_NAME) + ".override_lethal_cost", override_lethal_cost));
 
   keepout_filter_ = std::make_shared<nav2_costmap_2d::KeepoutFilter>();
-  keepout_filter_->initialize(&layers, std::string(FILTER_NAME), tf_buffer_.get(), node_, nullptr);
+  keepout_filter_->initialize(
+    layered_costmap_.get(), std::string(FILTER_NAME), tf_buffer_.get(), node_, nullptr);
   keepout_filter_->initializeFilter(INFO_TOPIC);
 
   // Wait until mask will be received by KeepoutFilter
@@ -332,6 +341,7 @@ void TestNode::reset()
   info_publisher_.reset();
   mask_publisher_.reset();
   keepout_filter_.reset();
+  layered_costmap_.reset();
   node_.reset();
   tf_listener_.reset();
   tf_broadcaster_.reset();
@@ -461,6 +471,81 @@ TEST_F(TestNode, testDifferentFrames)
   testFramesScenario(nav2_costmap_2d::FREE_SPACE, nav2_costmap_2d::LETHAL_OBSTACLE);
 
   // Clean-up
+  keepout_filter_->resetFilter();
+  reset();
+}
+
+// Run the filter over the whole master grid and report whether the lethal cost was overridden
+// (keepout cells get lethal_override_cost_ instead of LETHAL_OBSTACLE when the pose is lethal)
+TEST_F(TestNode, testOverrideLethalCostWithEmptyFootprint)
+{
+  createMaps(nav2_costmap_2d::FREE_SPACE, nav2_util::OCC_GRID_OCCUPIED, "map");
+  publishMaps();
+  createKeepoutFilter("map", true);
+
+  geometry_msgs::msg::Pose2D pose;
+  pose.x = 4.0;
+  pose.y = 4.0;
+  pose.theta = 0.0;
+  // Empty footprint falls back to a point check at the robot's position
+  EXPECT_NO_THROW(keepout_filter_->process(*master_grid_, 0, 0, 10, 10, pose));
+  EXPECT_EQ(master_grid_->getCost(4, 4), nav2_costmap_2d::MAX_NON_OBSTACLE);
+
+  keepout_filter_->resetFilter();
+  reset();
+}
+
+TEST_F(TestNode, testOverrideLethalCostWithLethalFootprint)
+{
+  createMaps(nav2_costmap_2d::FREE_SPACE, nav2_util::OCC_GRID_OCCUPIED, "map");
+  publishMaps();
+  createKeepoutFilter("map", true);
+  std::vector<geometry_msgs::msg::Point> footprint(4);
+  footprint[0].x = -0.4;
+  footprint[0].y = -0.4;
+  footprint[1].x = -0.4;
+  footprint[1].y = 0.4;
+  footprint[2].x = 0.4;
+  footprint[2].y = 0.4;
+  footprint[3].x = 0.4;
+  footprint[3].y = -0.4;
+  layered_costmap_->setFootprint(footprint);
+
+  geometry_msgs::msg::Pose2D pose;
+  pose.x = 4.0;
+  pose.y = 4.0;
+  pose.theta = 0.0;
+  keepout_filter_->process(*master_grid_, 0, 0, 10, 10, pose);
+  EXPECT_EQ(master_grid_->getCost(4, 4), nav2_costmap_2d::MAX_NON_OBSTACLE);
+
+  keepout_filter_->resetFilter();
+  reset();
+}
+
+TEST_F(TestNode, testOverrideLethalCostOutsideMaskWithCrossingFootprint)
+{
+  createMaps(nav2_costmap_2d::FREE_SPACE, nav2_util::OCC_GRID_OCCUPIED, "map");
+  publishMaps();
+  createKeepoutFilter("map", true);
+  std::vector<geometry_msgs::msg::Point> footprint(4);
+  footprint[0].x = -1.0;
+  footprint[0].y = -0.5;
+  footprint[1].x = -1.0;
+  footprint[1].y = 0.5;
+  footprint[2].x = 1.0;
+  footprint[2].y = 0.5;
+  footprint[3].x = 1.0;
+  footprint[3].y = -0.5;
+  layered_costmap_->setFootprint(footprint);
+
+  geometry_msgs::msg::Pose2D pose;
+  pose.x = 2.5;
+  pose.y = 4.0;
+  pose.theta = 0.0;
+  keepout_filter_->process(*master_grid_, 0, 0, 10, 10, pose);
+  // Pose is outside the mask, so the lethal cost is not overridden
+  EXPECT_EQ(master_grid_->getCost(4, 4), nav2_costmap_2d::LETHAL_OBSTACLE);
+
   keepout_filter_->resetFilter();
   reset();
 }
