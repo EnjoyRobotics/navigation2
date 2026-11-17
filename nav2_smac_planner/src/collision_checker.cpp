@@ -54,7 +54,8 @@ void GridCollisionChecker::setFootprint(
   const double & possible_collision_cost)
 {
   possible_collision_cost_ = static_cast<float>(possible_collision_cost);
-  if (possible_collision_cost_ <= 0.0f) {
+  // Circular (radius) footprints, e.g. SmacPlanner2D, never use the possible collision cost
+  if (!radius && possible_collision_cost_ <= 0.0f) {
     RCLCPP_ERROR_THROTTLE(
       logger_, *clock_, 1000,
       "Inflation layer either not found or inflation is not set sufficiently for "
